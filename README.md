@@ -87,7 +87,7 @@ This project's own repository, rendered by a viewer that is itself stored on Swa
 No server, no backend — the page fetches the packfiles and reconstructs the repository
 in your browser:
 
-**[bzz.limo/bzz/62dcd3d2…/#bzz/2659451a…](https://bzz.limo/bzz/62dcd3d2dffe39d2fdcbf14ea83d8d8d10da317b7280299173e48154943520e2/#bzz/2659451ac307f86a6e9f2286ffbfc7f33776d0f154ce899eab4ea535ab35a237)**
+**[bzz.limo/bzz/4ca221bf…/#bzz/2659451a…](https://bzz.limo/bzz/4ca221bfec68140441e8fa341162f47c293f1cba6cf1bba8470d86a8f1117808/#bzz/2659451ac307f86a6e9f2286ffbfc7f33776d0f154ce899eab4ea535ab35a237)**
 
 Use **bzz.limo**, not `download.gateway.ethswarm.org` — the latter sends
 `Content-Disposition: attachment`, so a browser saves the page instead of rendering it

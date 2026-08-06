@@ -51,17 +51,24 @@ export function parseTarget(hash) {
 
   const [beforeQuery] = raw.split('?')
   const [locator, ...pathParts] = beforeQuery.split('/-/')
-  const filePath = pathParts.join('/-/') || null
+
+  // A markdown link may carry an in-page anchor — `docs/addressing.md#which-gateway`.
+  // The browser puts everything after the first `#` in location.hash, so the anchor
+  // arrives glued to the path and must be split off, or it becomes part of the
+  // filename and nothing resolves.
+  const [rawPath, ...anchorParts] = (pathParts.join('/-/') || '').split('#')
+  const filePath = rawPath || null
+  const anchor = anchorParts.join('#') || null
   const parts = locator.split('/').filter(Boolean)
 
   if (parts[0] === 'bzz' && /^[0-9a-f]{64}$/i.test(parts[1] || '')) {
-    return { mode: 'manifest', ref: parts[1].toLowerCase(), filePath }
+    return { mode: 'manifest', ref: parts[1].toLowerCase(), filePath, anchor }
   }
   if (parts[0] === 'ens' && isEnsName(parts[1] || '')) {
-    return { mode: 'manifest', ref: parts[1].toLowerCase(), filePath }
+    return { mode: 'manifest', ref: parts[1].toLowerCase(), filePath, anchor }
   }
   if (parts.length === 1 && isEnsName(parts[0])) {
-    return { mode: 'manifest', ref: parts[0].toLowerCase(), filePath }
+    return { mode: 'manifest', ref: parts[0].toLowerCase(), filePath, anchor }
   }
   if (/^(0x)?[0-9a-f]{40}$/i.test(parts[0] || '') && parts[1]) {
     return {
@@ -69,6 +76,7 @@ export function parseTarget(hash) {
       owner: parts[0].replace(/^0x/i, '').toLowerCase(),
       repo: parts.slice(1).join('/'),
       filePath,
+      anchor,
     }
   }
   return null
