@@ -45,6 +45,52 @@ Full analysis, options considered and rejected, and the risk register:
 
 Work is tracked as GitHub issues, one per phase plus one per task.
 
+## Clone this repository
+
+This project is stored on Swarm, and you can fetch it from there. Which command depends
+on whether you already have the helper — which lives *inside* this repository.
+
+### If you have the helper
+
+```sh
+git clone bzz://2659451ac307f86a6e9f2286ffbfc7f33776d0f154ce899eab4ea535ab35a237 git-swarm
+```
+
+No Bee node, no postage batch, no key — reading is free. To read through a specific
+gateway rather than a local node:
+
+```sh
+SWARM_GATEWAY=https://bzz.limo \
+  git clone bzz://2659451ac307f86a6e9f2286ffbfc7f33776d0f154ce899eab4ea535ab35a237 git-swarm
+```
+
+### If you do not
+
+You need `git-remote-bzz` on `PATH` first, and it ships in this repository — so the first
+copy has to come from somewhere stock `git` can already read:
+
+```sh
+git clone https://github.com/crtahlin/swarm-git-POC.git git-swarm   # or your fork
+cd git-swarm && npm install && npm link
+```
+
+Then the `bzz://` command above works, and `git pull` inside that clone comes from Swarm.
+
+### Verify what you got
+
+```sh
+cd git-swarm
+git log --oneline -3
+git fsck            # every object is hash-verified; a bad byte cannot survive this
+```
+
+> **Known gap.** A Phase 0 dumb-HTTP mirror exists at
+> `b9250d4dd334ad8b140e754d08904328b5ff2e80f07a7c4dd0fc3a65bbc8601c`, clonable with stock
+> `git` and no helper — but it is a Phase 0 snapshot, predating the helper itself, so it
+> cannot bootstrap you. Re-running `scripts/swarm-git-mirror.sh` against the current tree
+> would close that loop and make Swarm-only bootstrapping real: stock `git` clone → `npm
+> link` → native `bzz://` from then on.
+
 ## Use it
 
 Swarm as an ordinary git remote. Install the helper once:
