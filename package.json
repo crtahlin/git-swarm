@@ -1,9 +1,10 @@
 {
   "name": "git-remote-swarm",
   "version": "0.1.0",
-  "description": "Git remote helper for Ethereum Swarm — git clone and git push against swarm:// URLs",
+  "description": "Git remote helper for Ethereum Swarm \u2014 git clone and git push against swarm:// URLs",
   "type": "module",
   "bin": {
+    "git-remote-bzz": "bin/git-remote-swarm",
     "git-remote-swarm": "bin/git-remote-swarm"
   },
   "engines": {

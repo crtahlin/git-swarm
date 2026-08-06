@@ -3,7 +3,7 @@
 Status: draft · Date: 2026-08-06 · Issue: [#11](https://github.com/crtahlin/swarm-git-POC/issues/11)
 
 How a Git repository is represented on Ethereum Swarm, so that `git clone`, `git fetch`
-and `git push` work against a `swarm://` remote with no server involved.
+and `git push` work against a `bzz` remote with no server involved.
 
 This document is normative for the format. It is deliberately independent of any one
 implementation: everything here can be built with the Bee HTTP API alone, and a second
@@ -27,20 +27,43 @@ join those two facts.
 
 ### 2.1 URL forms
 
+Two grammars, and the difference between them is deliberate.
+
 ```
-swarm://<owner>/<repo>                  canonical; read and write
-swarm://<owner>/<repo>?topic=<hex>      explicit topic, bypassing derivation
-swarm://bzz/<feed-manifest-ref>         read-only; the only form that works gateway-only
+bzz::<owner>/<repo>                 repository endpoint; read and write
+bzz::<owner>/<repo>?topic=<hex>     explicit topic, bypassing derivation
+bzz://<feed-manifest-ref>           content reference; read-only
+bzz://<name.eth>                    content reference by ENS name; read-only
 ```
+
+`bzz://<reference>` means, here, exactly what it means in a browser or an ENS
+contenthash record: **fetch this content-addressed thing**. It is read-only and
+singular, and the same string works in both places. Deliberately so.
+
+A repository is not a content reference. It is a read-write endpoint whose address
+is a (feed owner, topic) pair, and pasting `<owner>/<repo>` into a browser cannot
+work. Reusing `bzz://` for it would produce *partial* portability — some Swarm URLs
+openable in a browser, some not, indistinguishable by eye. So the repository form
+uses Git's `<transport>::<address>` grammar, which `gitremote-helpers(7)` documents
+as the explicit way to hand a foreign address to a helper, and which other
+transports already use (`hg::`, `gcrypt::`). The `::` is the signal: git address,
+not a URL.
+
+Implementations MUST also accept `swarm://<owner>/<repo>` and
+`swarm://bzz/<ref>`, the forms used before this convention was settled.
+
+The helper is installed as **`git-remote-bzz`**, with `git-remote-swarm` as an
+alias.
 
 - `<owner>` — the feed owner's Ethereum address, 40 hex characters, with or without `0x`.
 - `<repo>` — the repository name. Used only to derive the topic; it is not stored as a
   lookup key anywhere.
-- `<feed-manifest-ref>` — a 64-hex bzz reference to a feed manifest (§4.3).
+- `<feed-manifest-ref>` — a 64-hex bzz reference to a feed manifest (§4.3), or an
+  ENS name whose contenthash is one.
 
 A Swarm feed is addressed by the pair **(owner address, 32-byte topic)** — not by a
-content hash. That is why `swarm://<owner>/<repo>` needs no registry, no index and no
-name service: the URL *is* the address.
+content hash. That is why `bzz::<owner>/<repo>` needs no registry, no index and no
+name service: the address *is* the address.
 
 ### 2.2 Topic derivation
 
@@ -155,7 +178,7 @@ to publish runs a Bee node — a light node is sufficient, as Phase 0 showed.
 - **With a local node**: resolve `/feeds/{owner}/{topic}` → manifest reference → packs.
 - **Gateway only**: `/feeds` is unavailable, so resolution goes through a **feed
   manifest** — a bzz reference that wraps (owner, topic) and which the gateway resolves
-  server-side. This is the `swarm://bzz/<feed-manifest-ref>` URL form.
+  server-side. This is the `bzz://<feed-manifest-ref>` URL form.
 
 A writer MUST therefore publish both on every push: the feed update, and a feed manifest
 reference. The feed manifest address is stable across pushes while serving the newest

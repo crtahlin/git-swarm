@@ -18,29 +18,58 @@ export function gitConfig(key) {
 }
 
 /**
- * swarm://<owner>/<repo>[?topic=<hex>]   canonical, read and write
- * swarm://bzz/<feed-manifest-ref>        read-only, resolvable through a gateway
+ * Two grammars, deliberately distinguished — see the format spec §2.1.
+ *
+ *   bzz://<reference|name.eth>       a CONTENT reference: read-only, and means
+ *                                    exactly what bzz:// means in a browser or
+ *                                    an ENS contenthash, so it is portable
+ *   bzz::<owner>/<repo>[?topic=hex]  a REPOSITORY endpoint: clone, fetch, push.
+ *                                    Git's `<transport>::<address>` form, which
+ *                                    is its documented idiom for a foreign
+ *                                    address grammar — and a visible signal that
+ *                                    this is not a URL a browser can open.
+ *
+ * `swarm://…` is still accepted for anything already published with it, and Git
+ * passes the bare address for the `::` form, so a schemeless string is valid too.
  */
 export function parseUrl(raw) {
   const url = String(raw || '')
-  const m = url.match(/^swarm:\/\/(.+)$/i)
-  if (!m) throw new Error(`not a swarm:// URL: ${url}`)
 
-  const [pathPart, queryPart] = m[1].split('?')
+  // `bzz://<64hex>` and `bzz://<name>.eth` are content references — the same
+  // read-only form as `swarm://bzz/<ref>`, spelled the way the rest of the
+  // ecosystem spells it.
+  const content = url.match(/^bzz:\/\/([^/?]+)\/?$/i)
+  if (content && !/^bzz$/i.test(content[1])) {
+    const value = content[1].toLowerCase()
+    if (/^[0-9a-f]{64}$/.test(value) || isEnsName(value)) {
+      return { mode: 'manifest', feedManifest: value }
+    }
+  }
+
+  const stripped = url.replace(/^(swarm|bzz):(\/\/|:)/i, '')
+  const [pathPart, queryPart] = stripped.split('?')
   const query = new URLSearchParams(queryPart || '')
   const segments = pathPart.split('/').filter(Boolean)
 
   if (segments[0] === 'bzz') {
-    if (!/^[0-9a-f]{64}$/i.test(segments[1] || '')) {
-      throw new Error('swarm://bzz/<ref> needs a 64-hex feed manifest reference')
+    const value = (segments[1] || '').toLowerCase()
+    if (!/^[0-9a-f]{64}$/.test(value) && !isEnsName(value)) {
+      throw new Error('bzz/<ref> needs a 64-hex feed manifest reference or an ENS name')
     }
-    return { mode: 'manifest', feedManifest: segments[1].toLowerCase() }
+    return { mode: 'manifest', feedManifest: value }
+  }
+
+  // A single ENS name with no repo segment is a content reference too.
+  if (segments.length === 1 && isEnsName(segments[0])) {
+    return { mode: 'manifest', feedManifest: segments[0].toLowerCase() }
   }
 
   const owner = (segments[0] || '').replace(/^0x/i, '').toLowerCase()
   const repo = segments.slice(1).join('/')
   if (!/^[0-9a-f]{40}$/.test(owner)) {
-    throw new Error(`expected swarm://<owner-address>/<repo>, got: ${url}`)
+    throw new Error(
+      `expected bzz::<owner-address>/<repo> or bzz://<reference|name.eth>, got: ${url}`,
+    )
   }
   if (!repo) throw new Error('missing repository name in swarm:// URL')
 
@@ -50,6 +79,10 @@ export function parseUrl(raw) {
   }
 
   return { mode: 'feed', owner, repo, topicOverride: topic ? topic.toLowerCase() : null }
+}
+
+function isEnsName(value) {
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)*\.eth$/i.test(value)
 }
 
 export function resolveSettings(remoteName) {

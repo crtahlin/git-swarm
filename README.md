@@ -39,7 +39,7 @@ Full analysis, options considered and rejected, and the risk register:
 | Phase | Goal | Status |
 |---|---|---|
 | 0 | Static read-only mirror — `git clone` a repo from a Swarm gateway with stock Git | **done** — [results](docs/phase-0-results.md) |
-| 1 | `git-remote-swarm` — real `git push swarm://…` / `git clone swarm://…` | **done** — [results](docs/phase-1-results.md), [format spec](docs/spec-swarm-git-format-v1.md) |
+| 1 | `git-remote-bzz` — real `git push bzz::…` / `git clone bzz://…` | **done** — [results](docs/phase-1-results.md), [format spec](docs/spec-swarm-git-format-v1.md) |
 | 2 | Forge surface — static web viewer, Git-native issues, ACT private repos | viewer **done**, rest planned |
 | 3 | Ecosystem — Radicle archival seeding, Forgejo post-receive mirror | planned |
 
@@ -50,19 +50,19 @@ Work is tracked as GitHub issues, one per phase plus one per task.
 Swarm as an ordinary git remote. Install the helper once:
 
 ```sh
-npm install && npm link      # puts git-remote-swarm on PATH
+npm install && npm link      # puts git-remote-bzz on PATH
 ```
 
 Then point a repository at Swarm. Pushing needs a local Bee node, a postage batch and a
 signing key; reading needs none of them.
 
 ```sh
-git remote add origin swarm://<owner-address>/<repo-name>
+git remote add origin bzz::<owner-address>/<repo-name>
 git config remote.origin.swarmBatch <batch-id>
 git config remote.origin.swarmKey   <hex-private-key>
 
 git push origin main
-git clone swarm://<owner-address>/<repo-name> elsewhere
+git clone bzz::<owner-address>/<repo-name> elsewhere
 ```
 
 A read-only clone works through a public gateway with no node, batch or key, using the
@@ -70,12 +70,18 @@ feed manifest form printed by each push:
 
 ```sh
 SWARM_GATEWAY=https://bzz.limo \
-  git clone swarm://bzz/<feed-manifest-ref> elsewhere
+  git clone bzz://<feed-manifest-ref> elsewhere        # or bzz://<name>.eth
 ```
 
-Nothing here patches Git. `git-remote-swarm` is an executable on `PATH` — the extension
+Two grammars, and the difference matters. `bzz://<reference>` is a **content
+reference** — it means the same thing here as in a browser or an ENS contenthash, so the
+same string works in both. `bzz::<owner>/<repo>` is a **repository endpoint**: read-write,
+addressed by (feed owner, topic), and not something a browser can open. The `::` is Git's
+documented form for a foreign address grammar, and says so at a glance.
+
+Nothing here patches Git. `git-remote-bzz` is an executable on `PATH` — the extension
 point `gitremote-helpers(7)` documents, and the same mechanism Git's own HTTPS transport
-uses.
+uses. `swarm://` and `git-remote-swarm` still work.
 
 ## Browse it in a browser
 

@@ -52,7 +52,7 @@ clone_until() {
 # Skipped rather than failed: an unconfigured or offline environment is not a
 # defect in the helper, and a red test for that reason teaches nothing.
 
-command -v git-remote-swarm >/dev/null || skip "git-remote-swarm is not on PATH (run: npm link)"
+command -v git-remote-bzz >/dev/null || skip "git-remote-bzz is not on PATH (run: npm link)"
 [ -n "$OWNER" ] || skip "SWARM_OWNER not set"
 [ -n "$BATCH" ] || skip "SWARM_BATCH_ID not set"
 [ -n "$KEY" ]   || skip "SWARM_PRIVATE_KEY not set"
@@ -63,7 +63,7 @@ peers=$(curl -sf -m 10 "$BEE_API/topology" | python3 -c 'import sys,json; print(
 usable=$(curl -sf -m 10 "$BEE_API/stamps/$BATCH" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("usable",False))' 2>/dev/null || echo False)
 [ "$usable" = "True" ] || skip "postage batch ${BATCH:0:8}… is not usable"
 
-URL="swarm://$OWNER/$REPO_NAME"
+URL="bzz::$OWNER/$REPO_NAME"
 SRC="$HERE/work/e2e-src"
 CLONE1="$HERE/work/e2e-clone1"
 CLONE2="$HERE/work/e2e-clone2"
