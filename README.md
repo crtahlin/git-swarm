@@ -50,6 +50,24 @@ Work is tracked as GitHub issues, one per phase plus one per task.
 This project is stored on Swarm, and you can fetch it from there. Which command depends
 on whether you already have the helper — which lives *inside* this repository.
 
+### With stock git, no helper at all
+
+The original premise, and it still works — one HTTPS URL through any gateway, nothing
+installed:
+
+```sh
+git clone https://bzz.limo/bzz/<feed-manifest>/ git-swarm
+```
+
+That is Git's dumb-HTTP transport reading a tree published by
+`scripts/swarm-git-mirror.sh`. It needs no helper, no node, no key and no environment.
+
+**Caveat, and it is the important one:** the mirror is only as current as the last time
+that script was run. The published mirror at
+`b9250d4dd334ad8b140e754d08904328b5ff2e80f07a7c4dd0fc3a65bbc8601c` is a Phase 0 snapshot —
+it predates the helper, so it cannot bootstrap anyone today. Re-running the mirror against
+the current tree fixes that, and doing it on every push would keep it fixed. See #26.
+
 ### If you have the helper
 
 ```sh

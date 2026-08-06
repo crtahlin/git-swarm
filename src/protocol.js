@@ -19,7 +19,9 @@ export async function run(argv, { stdin = process.stdin, stdout = process.stdout
   const url = argv[1] || argv[0]
 
   const target = parseUrl(url)
-  const settings = resolveSettings(remoteName && remoteName !== url ? remoteName : null)
+  const base = resolveSettings(remoteName && remoteName !== url ? remoteName : null)
+  // A gateway named in the URL wins: it is the most specific statement of intent.
+  const settings = target.gateway ? { ...base, gateway: target.gateway } : base
   const swarm = new Swarm(settings)
 
   const topic = target.mode === 'feed'

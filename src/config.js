@@ -35,20 +35,24 @@ export function gitConfig(key) {
 export function parseUrl(raw) {
   const url = String(raw || '')
 
+  const stripped = url.replace(/^(swarm|bzz):(\/\/|:)/i, '')
+  const [pathPart, queryPart] = stripped.split('?')
+  const params = new URLSearchParams(queryPart || '')
+
+  // `?gateway=` makes a URL self-contained: paste it to anyone and it reads from
+  // the endpoint you named, with no environment to set up first.
+  const gateway = params.get('gateway') || null
+
   // `bzz://<64hex>` and `bzz://<name>.eth` are content references — the same
   // read-only form as `swarm://bzz/<ref>`, spelled the way the rest of the
   // ecosystem spells it.
-  const content = url.match(/^bzz:\/\/([^/?]+)\/?$/i)
-  if (content && !/^bzz$/i.test(content[1])) {
-    const value = content[1].toLowerCase()
+  const single = pathPart.replace(/\/+$/, '')
+  if (/^bzz:\/\//i.test(url) && single && !/[/]/.test(single) && !/^bzz$/i.test(single)) {
+    const value = single.toLowerCase()
     if (/^[0-9a-f]{64}$/.test(value) || isEnsName(value)) {
-      return { mode: 'manifest', feedManifest: value }
+      return { mode: 'manifest', feedManifest: value, gateway }
     }
   }
-
-  const stripped = url.replace(/^(swarm|bzz):(\/\/|:)/i, '')
-  const [pathPart, queryPart] = stripped.split('?')
-  const query = new URLSearchParams(queryPart || '')
   const segments = pathPart.split('/').filter(Boolean)
 
   if (segments[0] === 'bzz') {
@@ -56,12 +60,12 @@ export function parseUrl(raw) {
     if (!/^[0-9a-f]{64}$/.test(value) && !isEnsName(value)) {
       throw new Error('bzz/<ref> needs a 64-hex feed manifest reference or an ENS name')
     }
-    return { mode: 'manifest', feedManifest: value }
+    return { mode: 'manifest', feedManifest: value, gateway }
   }
 
   // A single ENS name with no repo segment is a content reference too.
   if (segments.length === 1 && isEnsName(segments[0])) {
-    return { mode: 'manifest', feedManifest: segments[0].toLowerCase() }
+    return { mode: 'manifest', feedManifest: segments[0].toLowerCase(), gateway }
   }
 
   const owner = (segments[0] || '').replace(/^0x/i, '').toLowerCase()
@@ -73,12 +77,12 @@ export function parseUrl(raw) {
   }
   if (!repo) throw new Error('missing repository name in swarm:// URL')
 
-  const topic = query.get('topic')
+  const topic = params.get('topic')
   if (topic && !/^[0-9a-f]{64}$/i.test(topic)) {
     throw new Error('?topic= must be 64 hex characters')
   }
 
-  return { mode: 'feed', owner, repo, topicOverride: topic ? topic.toLowerCase() : null }
+  return { mode: 'feed', owner, repo, topicOverride: topic ? topic.toLowerCase() : null, gateway }
 }
 
 function isEnsName(value) {
