@@ -40,7 +40,7 @@ Full analysis, options considered and rejected, and the risk register:
 |---|---|---|
 | 0 | Static read-only mirror — `git clone` a repo from a Swarm gateway with stock Git | **done** — [results](docs/phase-0-results.md) |
 | 1 | `git-remote-swarm` — real `git push swarm://…` / `git clone swarm://…` | **done** — [results](docs/phase-1-results.md), [format spec](docs/spec-swarm-git-format-v1.md) |
-| 2 | Forge surface — static web viewer, Git-native issues, ACT private repos | planned |
+| 2 | Forge surface — static web viewer, Git-native issues, ACT private repos | viewer **done**, rest planned |
 | 3 | Ecosystem — Radicle archival seeding, Forgejo post-receive mirror | planned |
 
 Work is tracked as GitHub issues, one per phase plus one per task.
@@ -69,13 +69,25 @@ A read-only clone works through a public gateway with no node, batch or key, usi
 feed manifest form printed by each push:
 
 ```sh
-SWARM_GATEWAY=https://download.gateway.ethswarm.org \
+SWARM_GATEWAY=https://bzz.limo \
   git clone swarm://bzz/<feed-manifest-ref> elsewhere
 ```
 
 Nothing here patches Git. `git-remote-swarm` is an executable on `PATH` — the extension
 point `gitremote-helpers(7)` documents, and the same mechanism Git's own HTTPS transport
 uses.
+
+## Browse it in a browser
+
+This project's own repository, rendered by a viewer that is itself stored on Swarm.
+No server, no backend — the page fetches the packfiles and reconstructs the repository
+in your browser:
+
+**[bzz.limo/bzz/62dcd3d2…/#bzz/2659451a…](https://bzz.limo/bzz/62dcd3d2dffe39d2fdcbf14ea83d8d8d10da317b7280299173e48154943520e2/#bzz/2659451ac307f86a6e9f2286ffbfc7f33776d0f154ce899eab4ea535ab35a237)**
+
+Use **bzz.limo**, not `download.gateway.ethswarm.org`. Both serve the same bytes, but the
+download gateway sends `Content-Disposition: attachment`, so a browser saves the page
+instead of rendering it. Source in [`viewer/`](viewer/).
 
 ## Try the Phase 0 mirror
 
@@ -93,9 +105,12 @@ alive only while its postage batch is topped up — see the cost section of the
 ## Layout
 
 ```
-docs/       architecture, specs, benchmark results
-scripts/    working tools (phase 0: the mirror script)
-tests/      end-to-end checks — the clone-from-gateway proof
+bin/        git-remote-swarm — the git remote helper
+src/        helper internals: protocol, manifest, swarm, git plumbing
+viewer/     the static web viewer (builds to viewer/dist, published to Swarm)
+docs/       architecture, format spec, phase results
+scripts/    phase 0 mirror script
+tests/      end-to-end checks — round trip and clone-from-gateway
 ```
 
 ## Requirements
