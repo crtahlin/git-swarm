@@ -20,62 +20,21 @@ Swarm is now an ordinary git remote. No server, no forge, no account, and no pat
 Git — `git-remote-bzz` is an executable on `PATH`, which is the extension point
 `gitremote-helpers(7)` documents and the same mechanism Git's own HTTPS transport uses.
 
-## Addressing: the `bzz` convention
+## Addressing and gateways
 
-Swarm content is addressed as `bzz://…` across the ecosystem — Freedom Browser, ENS
-contenthash records, the Bee docs. This project uses the same word, in two grammars,
-because the two things being named are not the same kind of thing.
+The two URL grammars (`bzz://` for content, `bzz::` for repositories), how to clone over
+HTTPS through a gateway, which gateway to use and why, and how ENS fits, are all in
+[`addressing.md`](addressing.md) — kept separate so it stays current as the reference
+rather than frozen as a result.
 
-| Form | What it names | Read | Write | Opens in a browser |
-|---|---|---|---|---|
-| `bzz://<reference>` | a content reference | yes | no | **yes** |
-| `bzz://<name>.eth` | the same, by ENS name | yes | no | **yes** |
-| `bzz::<owner>/<repo>` | a repository endpoint | yes | **yes** | no |
-| `swarm://…` | the pre-convention forms | yes | yes | no |
+Two findings from this phase belong here rather than there:
 
-`bzz://<reference>` means here exactly what it means in a browser: *fetch this
-content-addressed thing*. The identical string works in both places.
-
-A repository is not a content reference. Its address is a (feed owner, topic) pair, it is
-read-write, and no browser can render it. Putting it behind `bzz://` too would produce
-**partial** portability — some Swarm URLs openable in a browser, some not, and no way to
-tell by looking. So the repository form uses `<transport>::<address>`, which
-`gitremote-helpers(7)` documents as the explicit way to hand a foreign address grammar to
-a helper, and which `hg::` and `gcrypt::` already use. The `::` is the tell.
-
-The helper installs as **`git-remote-bzz`**; `git-remote-swarm` remains as an alias so
-anything already published keeps working.
-
-## Reading over HTTPS through a public gateway
-
-Cloning needs no Bee node, no postage batch and no key — only a gateway and a reference:
-
-```sh
-SWARM_GATEWAY=https://bzz.limo git clone bzz://<feed-manifest-ref> myrepo
-SWARM_GATEWAY=https://bzz.limo git clone bzz://<name>.eth myrepo
-```
-
-Or configure it per remote, so it survives:
-
-```sh
-git config remote.origin.swarmGateway https://bzz.limo
-```
-
-Resolution order is `remote.<name>.swarmGateway` → `SWARM_GATEWAY` → `SWARM_API` →
-`BEE_API` → `http://localhost:1633`.
-
-**Which gateway matters, and not only for the viewer.** `bzz.limo` serves content inline
-with the correct `Content-Type` and CORS `*`. `download.gateway.ethswarm.org` sends
-`Content-Disposition: attachment` — the name is literal — which is harmless for `git
-clone` but makes a browser save the web viewer instead of rendering it. Use `bzz.limo`
-and there is one answer for both.
-
-Pushing is different and always needs a local Bee node: it requires a postage batch and a
-signing key, and no public gateway offers either.
-
-**ENS names already work for reading**, verified against `swarm.eth`: the gateway resolves
-the contenthash itself, so the helper simply passes the name through and needs no
-Ethereum RPC of its own. Writing to a name is a separate problem — see below.
+- **ENS names already work for reading**, verified against `swarm.eth`. The gateway
+  resolves the contenthash, so the helper passes the name through and needs no Ethereum
+  RPC of its own.
+- **Gateway choice is not cosmetic.** `download.gateway.ethswarm.org` sends
+  `Content-Disposition: attachment`, which is harmless for `git clone` and fatal for the
+  web viewer. `bzz.limo` works for both.
 
 ## What was built
 

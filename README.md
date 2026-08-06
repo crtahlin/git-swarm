@@ -65,19 +65,17 @@ git push origin main
 git clone bzz::<owner-address>/<repo-name> elsewhere
 ```
 
-A read-only clone works through a public gateway with no node, batch or key, using the
-feed manifest form printed by each push:
+A read-only clone works through a public gateway with no node, batch or key:
 
 ```sh
-SWARM_GATEWAY=https://bzz.limo \
-  git clone bzz://<feed-manifest-ref> elsewhere        # or bzz://<name>.eth
+SWARM_GATEWAY=https://bzz.limo git clone bzz://<feed-manifest-ref> elsewhere
+SWARM_GATEWAY=https://bzz.limo git clone bzz://<name>.eth elsewhere
 ```
 
-Two grammars, and the difference matters. `bzz://<reference>` is a **content
-reference** — it means the same thing here as in a browser or an ENS contenthash, so the
-same string works in both. `bzz::<owner>/<repo>` is a **repository endpoint**: read-write,
-addressed by (feed owner, topic), and not something a browser can open. The `::` is Git's
-documented form for a foreign address grammar, and says so at a glance.
+`bzz://<reference>` is a **content reference** and means the same thing here as in a
+browser; `bzz::<owner>/<repo>` is a **repository endpoint**, read-write and not something
+a browser can open. Full rules, gateway choice and ENS setup:
+[`docs/addressing.md`](docs/addressing.md).
 
 Nothing here patches Git. `git-remote-bzz` is an executable on `PATH` — the extension
 point `gitremote-helpers(7)` documents, and the same mechanism Git's own HTTPS transport
@@ -91,9 +89,9 @@ in your browser:
 
 **[bzz.limo/bzz/62dcd3d2…/#bzz/2659451a…](https://bzz.limo/bzz/62dcd3d2dffe39d2fdcbf14ea83d8d8d10da317b7280299173e48154943520e2/#bzz/2659451ac307f86a6e9f2286ffbfc7f33776d0f154ce899eab4ea535ab35a237)**
 
-Use **bzz.limo**, not `download.gateway.ethswarm.org`. Both serve the same bytes, but the
-download gateway sends `Content-Disposition: attachment`, so a browser saves the page
-instead of rendering it. Source in [`viewer/`](viewer/).
+Use **bzz.limo**, not `download.gateway.ethswarm.org` — the latter sends
+`Content-Disposition: attachment`, so a browser saves the page instead of rendering it
+([why](docs/addressing.md#which-gateway)). Source in [`viewer/`](viewer/).
 
 ## Try the Phase 0 mirror
 
@@ -111,13 +109,20 @@ alive only while its postage batch is topped up — see the cost section of the
 ## Layout
 
 ```
-bin/        git-remote-swarm — the git remote helper
+bin/        the git remote helper, installed as git-remote-bzz
 src/        helper internals: protocol, manifest, swarm, git plumbing
 viewer/     the static web viewer (builds to viewer/dist, published to Swarm)
-docs/       architecture, format spec, phase results
+docs/       architecture, addressing, format spec, phase results
 scripts/    phase 0 mirror script
-tests/      end-to-end checks — round trip and clone-from-gateway
+tests/      end-to-end checks — round trip, gateway clone, served-page links
 ```
+
+| Document | What it covers |
+|---|---|
+| [`docs/addressing.md`](docs/addressing.md) | URL forms, gateways, ENS — what to type and why |
+| [`docs/spec-swarm-git-format-v1.md`](docs/spec-swarm-git-format-v1.md) | the on-Swarm format, normative |
+| [`docs/architecture.md`](docs/architecture.md) | the options considered, and the risk register |
+| [`docs/phase-0-results.md`](docs/phase-0-results.md) · [`docs/phase-1-results.md`](docs/phase-1-results.md) | what was measured |
 
 ## Requirements
 

@@ -2,7 +2,8 @@
 
 import { marked } from 'marked'
 import {
-  commitLog, gatewayFromLocation, listTree, loadRepository, parseTarget, readFile, resolveManifest,
+  commitLog, gatewayFromLocation, isExternalHref, listTree, loadRepository, parseTarget,
+  readFile, resolveManifest, resolveRelative, targetPrefix,
 } from './repo.js'
 
 const $ = (id) => document.getElementById(id)
@@ -15,7 +16,7 @@ const el = (tag, className, text) => {
 
 if (new URLSearchParams(location.search).has('debug')) globalThis.__fslog = []
 
-const state = { repo: null, manifest: null, gateway: null, headOid: null, path: [] }
+const state = { repo: null, manifest: null, gateway: null, headOid: null, path: [], target: null, prefix: '' }
 
 function status(message, kind = 'info') {
   const box = $('status')
@@ -34,7 +35,24 @@ async function boot() {
   const target = parseTarget(location.hash)
   if (!target) return showLanding()
 
+  const prefix = targetPrefix(target)
+
+  // Clicking a link inside a README fires hashchange. If it addresses the repo we
+  // already hold, navigate — do not download and re-index every packfile again.
+  if (state.repo && state.prefix === prefix) {
+    state.target = target
+    try {
+      if (target.filePath) await openFile(target.filePath.split('/'), { updateHash: false })
+      else await renderTree([], { updateHash: false })
+    } catch {
+      await renderTree((target.filePath || '').split('/').filter(Boolean), { updateHash: false })
+    }
+    return
+  }
+
   state.gateway = gatewayFromLocation()
+  state.target = target
+  state.prefix = prefix
   $('app').hidden = false
   $('landing').hidden = true
 
@@ -49,7 +67,20 @@ async function boot() {
     state.headOid = manifest.refs[manifest.head] || Object.values(manifest.refs)[0]
     hideStatus()
     renderHeader(manifest, manifestRef)
-    await Promise.all([renderCommits(), renderTree([])])
+    await renderCommits()
+
+    // A deep link may name a file or a directory. Try it as a file first; a
+    // directory read fails, and falling back keeps both link shapes working.
+    if (target.filePath) {
+      try {
+        await openFile(target.filePath.split('/'), { keepTree: false, updateHash: false })
+        return
+      } catch {
+        await renderTree(target.filePath.split('/'), { updateHash: false })
+        return
+      }
+    }
+    await renderTree([])
   } catch (err) {
     const debug = new URLSearchParams(location.search).has('debug')
     const trace = debug ? `${err.stack || ''}\n\nfs calls:\n${(globalThis.__fslog || []).join('\n')}` : ''
@@ -134,8 +165,9 @@ async function renderCommits(ref) {
 
 // --- tree and files ---------------------------------------------------------
 
-async function renderTree(path) {
+async function renderTree(path, { updateHash = true } = {}) {
   state.path = path
+  if (updateHash) setHash(path.join('/'))
   const box = $('tree')
   box.replaceChildren()
   $('file').hidden = true
@@ -157,7 +189,7 @@ async function renderTree(path) {
   }
 
   const readme = sorted.find((e) => e.type === 'blob' && /^readme\.md$/i.test(e.path))
-  if (readme && path.length === 0) await openFile([readme.path], { keepTree: true })
+  if (readme && path.length === 0) await openFile([readme.path], { keepTree: true, updateHash: false })
 }
 
 function renderBreadcrumb(path) {
@@ -176,10 +208,11 @@ function renderBreadcrumb(path) {
   })
 }
 
-async function openFile(path, { keepTree = false } = {}) {
+async function openFile(path, { keepTree = false, updateHash = true } = {}) {
   const filepath = path.join('/')
   const blob = await readFile(state.repo, state.headOid, filepath)
   const text = new TextDecoder().decode(blob)
+  if (updateHash) setHash(filepath)
 
   const panel = $('file')
   panel.hidden = false
@@ -192,6 +225,7 @@ async function openFile(path, { keepTree = false } = {}) {
   if (/\.md$/i.test(filepath)) {
     const rendered = el('div', 'markdown')
     rendered.innerHTML = marked.parse(text)
+    await rewriteRepoLinks(rendered, filepath)
     body.append(rendered)
   } else if (looksBinary(blob)) {
     body.append(el('p', 'muted', `binary file, ${formatBytes(blob.length)}`))
@@ -204,6 +238,46 @@ async function openFile(path, { keepTree = false } = {}) {
     back.onclick = () => renderTree(path.slice(0, -1))
     body.prepend(back)
   }
+}
+
+/**
+ * Make links inside rendered markdown point back into the repository.
+ *
+ * A README written for GitHub links to `docs/architecture.md`. Left alone, the
+ * browser resolves that against the gateway URL and 404s — the document is not a
+ * file on the gateway, it is an object inside a packfile we hold in memory. So
+ * relative links become deep links into this viewer, and relative images are
+ * resolved to blobs and inlined. Absolute links, protocol-relative links and
+ * in-page anchors are left exactly as the author wrote them.
+ */
+async function rewriteRepoLinks(root, fromFile) {
+  for (const anchor of root.querySelectorAll('a[href]')) {
+    const href = anchor.getAttribute('href')
+    if (isExternalHref(href)) {
+      anchor.rel = 'noopener noreferrer'
+      continue
+    }
+    const [target, fragment] = href.split('#')
+    const resolved = resolveRelative(fromFile, target)
+    anchor.setAttribute('href', `#${state.prefix}/-/${resolved}${fragment ? `#${fragment}` : ''}`)
+  }
+
+  for (const img of root.querySelectorAll('img[src]')) {
+    const src = img.getAttribute('src')
+    if (isExternalHref(src)) continue
+    try {
+      const bytes = await readFile(state.repo, state.headOid, resolveRelative(fromFile, src))
+      const type = /\.svg$/i.test(src) ? 'image/svg+xml' : ''
+      img.src = URL.createObjectURL(new Blob([bytes], type ? { type } : undefined))
+    } catch {
+      img.replaceWith(el('span', 'muted', `[missing image: ${src}]`))
+    }
+  }
+}
+
+function setHash(path) {
+  const next = path ? `#${state.prefix}/-/${path}` : `#${state.prefix}`
+  if (location.hash !== next) history.replaceState(null, '', next)
 }
 
 // --- helpers ----------------------------------------------------------------

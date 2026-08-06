@@ -34,6 +34,12 @@ export function gatewayFromLocation() {
  *   #<name.eth>                  same, shorthand
  *   #<owner>/<repo>              resolve through /feeds (needs a local Bee node)
  *
+ * Any of them may carry a path after `/-/`, which opens that file or directory:
+ *   #bzz/<ref>/-/docs/architecture.md
+ *
+ * Deep links rather than in-page navigation, so a link inside a rendered README is a
+ * real URL: shareable, bookmarkable, and testable by loading it.
+ *
  * ENS names need no special handling beyond being allowed through: a gateway
  * serves /bzz/<name.eth>/ exactly as it serves /bzz/<reference>/, resolving the
  * contenthash itself. Verified against swarm.eth on both a local node and
@@ -43,20 +49,27 @@ export function parseTarget(hash) {
   const raw = (hash || '').replace(/^#\/?/, '')
   if (!raw) return null
 
-  const [path] = raw.split('?')
-  const parts = path.split('/').filter(Boolean)
+  const [beforeQuery] = raw.split('?')
+  const [locator, ...pathParts] = beforeQuery.split('/-/')
+  const filePath = pathParts.join('/-/') || null
+  const parts = locator.split('/').filter(Boolean)
 
   if (parts[0] === 'bzz' && /^[0-9a-f]{64}$/i.test(parts[1] || '')) {
-    return { mode: 'manifest', ref: parts[1].toLowerCase() }
+    return { mode: 'manifest', ref: parts[1].toLowerCase(), filePath }
   }
   if (parts[0] === 'ens' && isEnsName(parts[1] || '')) {
-    return { mode: 'manifest', ref: parts[1].toLowerCase() }
+    return { mode: 'manifest', ref: parts[1].toLowerCase(), filePath }
   }
   if (parts.length === 1 && isEnsName(parts[0])) {
-    return { mode: 'manifest', ref: parts[0].toLowerCase() }
+    return { mode: 'manifest', ref: parts[0].toLowerCase(), filePath }
   }
   if (/^(0x)?[0-9a-f]{40}$/i.test(parts[0] || '') && parts[1]) {
-    return { mode: 'feed', owner: parts[0].replace(/^0x/i, '').toLowerCase(), repo: parts.slice(1).join('/') }
+    return {
+      mode: 'feed',
+      owner: parts[0].replace(/^0x/i, '').toLowerCase(),
+      repo: parts.slice(1).join('/'),
+      filePath,
+    }
   }
   return null
 }
@@ -147,4 +160,29 @@ export async function listTree(repo, oid, path = '') {
 export async function readFile(repo, oid, filepath) {
   const { blob } = await git.readBlob({ ...repo, oid, filepath })
   return blob
+}
+
+/** The fragment prefix that addresses this repository, without any file path. */
+export function targetPrefix(target) {
+  if (target.mode === 'manifest') {
+    return /^[0-9a-f]{64}$/.test(target.ref) ? `bzz/${target.ref}` : `ens/${target.ref}`
+  }
+  return `${target.owner}/${target.repo}`
+}
+
+/** Resolve a relative link against the directory holding the file it appeared in. */
+export function resolveRelative(fromFile, href) {
+  const base = href.startsWith('/') ? [] : String(fromFile || '').split('/').slice(0, -1)
+  const out = [...base]
+  for (const segment of href.replace(/^\//, '').split('/')) {
+    if (!segment || segment === '.') continue
+    if (segment === '..') out.pop()
+    else out.push(segment)
+  }
+  return out.join('/')
+}
+
+/** Links we must not rewrite: absolute, protocol-relative, in-page anchors, mail. */
+export function isExternalHref(href) {
+  return /^([a-z][a-z0-9+.-]*:|\/\/|#)/i.test(href)
 }
