@@ -1,0 +1,15 @@
+#!/usr/bin/env node
+//
+// git remote helper for Ethereum Swarm.
+//
+// Git spawns this as `git-remote-swarm <remote> <url>` whenever it meets a
+// swarm:// URL, and speaks a line protocol over stdin/stdout. Nothing here
+// patches or links against Git — gitremote-helpers(7) is a supported extension
+// point, and Git's own HTTPS transport is implemented the same way.
+
+import { run } from '../src/protocol.js'
+
+run(process.argv.slice(2)).catch((err) => {
+  process.stderr.write(`git-remote-swarm: ${err.message}\n`)
+  process.exit(1)
+})

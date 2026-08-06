@@ -1,0 +1,17 @@
+{
+  "name": "git-remote-swarm",
+  "version": "0.1.0",
+  "description": "Git remote helper for Ethereum Swarm — git clone and git push against swarm:// URLs",
+  "type": "module",
+  "bin": {
+    "git-remote-swarm": "bin/git-remote-swarm"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@ethersphere/bee-js": "12.3.1"
+  },
+  "license": "MIT",
+  "private": true
+}

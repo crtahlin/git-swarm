@@ -4,6 +4,8 @@
 .env.*
 !.env.example
 
+node_modules/
+
 # local scratch — mirror staging areas, downloaded clones, benchmark artefacts
 work/
 out/
