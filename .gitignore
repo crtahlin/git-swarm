@@ -1,0 +1,11 @@
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+
+# local scratch — mirror staging areas, downloaded clones, benchmark artefacts
+work/
+out/
+tmp/
+*.pack.tmp
