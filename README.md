@@ -38,12 +38,25 @@ Full analysis, options considered and rejected, and the risk register:
 
 | Phase | Goal | Status |
 |---|---|---|
-| 0 | Static read-only mirror — `git clone` a repo from a Swarm gateway with stock Git | in progress |
+| 0 | Static read-only mirror — `git clone` a repo from a Swarm gateway with stock Git | **done** — [results](docs/phase-0-results.md) |
 | 1 | `git-remote-swarm` — real `git push swarm://…` / `git clone swarm://…` | planned |
 | 2 | Forge surface — static web viewer, Git-native issues, ACT private repos | planned |
 | 3 | Ecosystem — Radicle archival seeding, Forgejo post-receive mirror | planned |
 
 Work is tracked as GitHub issues, one per phase plus one per task.
+
+## Try it
+
+This repository is published on Swarm. Clone it from there with stock `git` — no Bee
+node, no plugin, no account:
+
+```sh
+git clone https://download.gateway.ethswarm.org/bzz/b9250d4dd334ad8b140e754d08904328b5ff2e80f07a7c4dd0fc3a65bbc8601c/ swarm-git-poc
+```
+
+That URL is a Swarm feed, so it keeps pointing at the latest published state. It stays
+alive only while its postage batch is topped up — see the cost section of the
+[Phase 0 results](docs/phase-0-results.md).
 
 ## Layout
 
