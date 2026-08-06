@@ -8,7 +8,7 @@ Issues: [#2](https://github.com/crtahlin/swarm-git-POC/issues/2) (epic), #11, #1
 **Both acceptance criteria are met.**
 
 ```sh
-git clone swarm://<owner>/<repo> myrepo     # read
+git clone bzz::<owner>/<repo> myrepo        # read
 cd myrepo && git commit -m "…"
 git push                                    # write
 ```
@@ -17,14 +17,71 @@ works against a local Bee node, and a **read-only clone succeeds through a publi
 gateway** with no Bee node, no postage batch and no key.
 
 Swarm is now an ordinary git remote. No server, no forge, no account, and no patch to
-Git — `git-remote-swarm` is an executable on `PATH`, which is the extension point
+Git — `git-remote-bzz` is an executable on `PATH`, which is the extension point
 `gitremote-helpers(7)` documents and the same mechanism Git's own HTTPS transport uses.
+
+## Addressing: the `bzz` convention
+
+Swarm content is addressed as `bzz://…` across the ecosystem — Freedom Browser, ENS
+contenthash records, the Bee docs. This project uses the same word, in two grammars,
+because the two things being named are not the same kind of thing.
+
+| Form | What it names | Read | Write | Opens in a browser |
+|---|---|---|---|---|
+| `bzz://<reference>` | a content reference | yes | no | **yes** |
+| `bzz://<name>.eth` | the same, by ENS name | yes | no | **yes** |
+| `bzz::<owner>/<repo>` | a repository endpoint | yes | **yes** | no |
+| `swarm://…` | the pre-convention forms | yes | yes | no |
+
+`bzz://<reference>` means here exactly what it means in a browser: *fetch this
+content-addressed thing*. The identical string works in both places.
+
+A repository is not a content reference. Its address is a (feed owner, topic) pair, it is
+read-write, and no browser can render it. Putting it behind `bzz://` too would produce
+**partial** portability — some Swarm URLs openable in a browser, some not, and no way to
+tell by looking. So the repository form uses `<transport>::<address>`, which
+`gitremote-helpers(7)` documents as the explicit way to hand a foreign address grammar to
+a helper, and which `hg::` and `gcrypt::` already use. The `::` is the tell.
+
+The helper installs as **`git-remote-bzz`**; `git-remote-swarm` remains as an alias so
+anything already published keeps working.
+
+## Reading over HTTPS through a public gateway
+
+Cloning needs no Bee node, no postage batch and no key — only a gateway and a reference:
+
+```sh
+SWARM_GATEWAY=https://bzz.limo git clone bzz://<feed-manifest-ref> myrepo
+SWARM_GATEWAY=https://bzz.limo git clone bzz://<name>.eth myrepo
+```
+
+Or configure it per remote, so it survives:
+
+```sh
+git config remote.origin.swarmGateway https://bzz.limo
+```
+
+Resolution order is `remote.<name>.swarmGateway` → `SWARM_GATEWAY` → `SWARM_API` →
+`BEE_API` → `http://localhost:1633`.
+
+**Which gateway matters, and not only for the viewer.** `bzz.limo` serves content inline
+with the correct `Content-Type` and CORS `*`. `download.gateway.ethswarm.org` sends
+`Content-Disposition: attachment` — the name is literal — which is harmless for `git
+clone` but makes a browser save the web viewer instead of rendering it. Use `bzz.limo`
+and there is one answer for both.
+
+Pushing is different and always needs a local Bee node: it requires a postage batch and a
+signing key, and no public gateway offers either.
+
+**ENS names already work for reading**, verified against `swarm.eth`: the gateway resolves
+the contenthash itself, so the helper simply passes the name through and needs no
+Ethereum RPC of its own. Writing to a name is a separate problem — see below.
 
 ## What was built
 
 | File | Role |
 |---|---|
-| `bin/git-remote-swarm` | The helper Git spawns for `swarm://` URLs |
+| `bin/git-remote-swarm` | The helper Git spawns for `bzz` remotes, installed as `git-remote-bzz` |
 | `src/protocol.js` | `capabilities` / `list` / `fetch` / `push` over stdin/stdout |
 | `src/swarm.js` | Feeds, uploads, downloads, node and batch preflight |
 | `src/manifest.js` | Build, validate and advance the `swarm-git/1` manifest |
@@ -54,10 +111,14 @@ PASS
 Gateway-only read, separately verified — no local node, no batch, no key:
 
 ```
-git clone swarm://bzz/fadc093f9c82e7dcfaefb23e3151c07b2a09dd74f9978f8c7b0a1e19ae7dd586
+SWARM_GATEWAY=https://bzz.limo git clone bzz://fadc093f9c82e7dcfaefb23e3151c07b2a09dd74f9978f8c7b0a1e19ae7dd586
   downloading pack 1/3 … 2/3 … 3/3
   HEAD 9fdb009 "rewritten second commit"
 ```
+
+ENS resolution verified the same way, against `swarm.eth`: `git clone bzz://swarm.eth`
+resolved the name through the gateway and fetched its content, failing only on the
+manifest parse — correct, since that name points at a website rather than a repository.
 
 Incrementality is visible in those numbers: the second push uploaded 283 bytes — the new
 commit, tree and blob — not the repository. Phase 0 republished the whole tree every time.
@@ -106,6 +167,28 @@ The acceptance test tolerates this by retrying the clone until the expected comm
 appears, rather than pretending reads are instantaneous. Anything that pushes and
 immediately reads back should expect the same.
 
+## Writing to an ENS name: what it would take
+
+Reading by name is free because the gateway does the work. Writing is not, and the reason
+is worth stating precisely: an ENS **contenthash** record names *content*. A push needs
+the feed's **owner address**, and a contenthash cannot supply one.
+
+The tractable route is the `addr` record — the ordinary "what address does this name point
+at" resolution every ENS name already has. `bzz::<name>.eth/<repo>` would resolve the
+owner from `addr`, derive the topic from `<repo>` as usual, and everything downstream is
+unchanged. No new convention, no format change.
+
+The cost is a real Ethereum lookup inside the helper, which read-only mode never needs:
+an RPC endpoint to configure, an ENS registry-then-resolver `eth_call` (about 50 lines
+raw, or a dependency), failure modes when the RPC is slow or wrong, and caching so every
+`git fetch` does not repeat it. Call it half a day, plus a design decision that is not
+purely technical: *is the holder of the name necessarily the holder of the feed key?*
+Usually yes, but the spec should say so rather than assume it.
+
+Recommendation: keep reading-by-name as it is, and treat writing-by-name as a Phase 2
+issue rather than a Phase 1 gap. Nothing is blocked by its absence — a writer already has
+an owner address, since they hold the key.
+
 ## Not covered
 
 - **Performance at size.** The 22 MB `bee-js` comparison against the Phase 0 baseline of
@@ -115,14 +198,14 @@ immediately reads back should expect the same.
 - **Fetch optimisation.** A clone downloads every pack listed in the manifest. The
   `tips`/`base` fields exist so packs whose objects are already present can be skipped;
   that is deliberately deferred until the round trip was proven.
-- Single writer, public repositories, raw hex addresses. Private repos, multi-writer and
-  ENS naming remain Phase 2 and later.
+- Single writer, public repositories. Writing to an ENS name, private repos and
+  multi-writer remain Phase 2 and later.
 
 ## Reproducing
 
 ```sh
-npm install && npm link
-git remote add origin swarm://<owner>/<repo>
+npm install && npm link      # installs git-remote-bzz
+git remote add origin bzz::<owner>/<repo>
 git config remote.origin.swarmBatch <batch-id>
 git config remote.origin.swarmKey   <hex-private-key>
 git push origin main
