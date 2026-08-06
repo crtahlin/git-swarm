@@ -23,10 +23,30 @@ BEE_API="${SWARM_API:-${BEE_API:-http://localhost:1633}}"
 OWNER="${SWARM_OWNER:-}"
 BATCH="${SWARM_BATCH_ID:-}"
 KEY="${SWARM_PRIVATE_KEY:-}"
-REPO_NAME="${SWARM_TEST_REPO:-swarm-git-e2e-$(git -C "$HERE" rev-parse --short HEAD)}"
+# Unique per run: a repeated name would inherit the previous run's feed history,
+# and the first push would be correctly rejected as a non-fast-forward.
+REPO_NAME="${SWARM_TEST_REPO:-swarm-git-e2e-$(date +%s)}"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 skip() { echo "SKIP: $*" >&2; exit 77; }
+
+# Clone until the expected commit shows up.
+#
+# A feed read immediately after a write can still return the previous update:
+# the node's feed lookup lags its own write by a few seconds. The feed itself is
+# correct — a probe moments later shows the new index — so retrying is the honest
+# way to test this, rather than pretending the read is instantaneous.
+clone_until() {
+  local url="$1" dest="$2" expected="$3" deadline=$((SECONDS + 90))
+  while [ $SECONDS -lt $deadline ]; do
+    rm -rf "$dest"
+    if git clone -q "$url" "$dest" 2>/dev/null && [ "$(git -C "$dest" rev-parse HEAD)" = "$expected" ]; then
+      return 0
+    fi
+    sleep 5
+  done
+  return 1
+}
 
 # --- preconditions ----------------------------------------------------------
 # Skipped rather than failed: an unconfigured or offline environment is not a
@@ -67,9 +87,8 @@ FIRST=$(git -C "$SRC" rev-parse HEAD)
 
 # --- 2. clone it back -------------------------------------------------------
 echo "==> clone 1"
-git clone -q "$URL" "$CLONE1" || fail "clone failed"
+clone_until "$URL" "$CLONE1" "$FIRST" || fail "clone never produced the pushed commit"
 git -C "$CLONE1" fsck --no-progress >/dev/null 2>&1 || fail "clone did not pass fsck"
-[ "$(git -C "$CLONE1" rev-parse HEAD)" = "$FIRST" ] || fail "cloned HEAD does not match what was pushed"
 echo "    HEAD matches: $FIRST"
 
 # --- 3. push again, and see the change come back ----------------------------
@@ -82,20 +101,41 @@ echo "==> push 2 (incremental)"
 git -C "$SRC" push -q origin main || fail "second push failed"
 
 echo "==> clone 2"
-git clone -q "$URL" "$CLONE2" || fail "second clone failed"
+clone_until "$URL" "$CLONE2" "$SECOND" || fail "feed never advanced to the second commit"
 git -C "$CLONE2" fsck --no-progress >/dev/null 2>&1 || fail "second clone did not pass fsck"
-[ "$(git -C "$CLONE2" rev-parse HEAD)" = "$SECOND" ] || fail "feed did not advance to the second commit"
 [ "$(git -C "$CLONE2" rev-list --count HEAD)" = "2" ] || fail "history is incomplete after the incremental push"
 echo "    HEAD matches: $SECOND, full history present"
 
 # --- 4. failure modes must be loud, not silent ------------------------------
 echo "==> rejects a push with no batch configured"
+# There must be something to push: git short-circuits an up-to-date ref and never
+# invokes the helper, which would make this check pass for the wrong reason.
+echo "third commit" >> "$SRC/README.md"
+git -C "$SRC" add -A
+git -C "$SRC" -c user.email=e2e@example.invalid -c user.name=e2e commit -q -m "third commit"
 git -C "$SRC" config --unset remote.origin.swarmBatch
-if git -C "$SRC" push -q origin main 2>/dev/null; then
+if env -u SWARM_BATCH_ID git -C "$SRC" push -q origin main 2>/dev/null; then
   fail "push succeeded with no postage batch configured"
 fi
 git -C "$SRC" config remote.origin.swarmBatch "$BATCH"
 echo "    rejected"
+
+echo "==> rejects a non-fast-forward without force"
+# Divergence has to be manufactured by rewriting a commit the remote already has.
+# Dropping the unpushed third commit would land back exactly on the remote tip,
+# which is a no-op rather than a rejection.
+git -C "$SRC" reset -q --hard HEAD~1
+git -C "$SRC" -c user.email=e2e@example.invalid -c user.name=e2e commit -q --amend -m "rewritten second commit"
+if git -C "$SRC" push -q origin main 2>/dev/null; then
+  fail "push succeeded on a non-fast-forward without force"
+fi
+echo "    rejected"
+
+echo "==> accepts the same push when forced"
+git -C "$SRC" push -q --force origin main || fail "forced push was refused"
+REWRITTEN=$(git -C "$SRC" rev-parse HEAD)
+clone_until "$URL" "$HERE/work/e2e-clone3" "$REWRITTEN" || fail "force push did not move the feed"
+echo "    accepted, feed moved to $REWRITTEN"
 
 echo
 echo "PASS — pushed, cloned, pushed again and re-cloned through Swarm with plain git"

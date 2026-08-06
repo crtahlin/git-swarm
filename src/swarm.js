@@ -2,7 +2,7 @@
 // may be the local node); writes always go through the local node, because a
 // public gateway can neither hold a postage batch nor sign a feed update.
 
-import { Bee, EthAddress, PrivateKey, Topic } from '@ethersphere/bee-js'
+import { Bee, EthAddress, FeedIndex, PrivateKey, Topic } from '@ethersphere/bee-js'
 import { TOPIC_PREFIX } from './config.js'
 
 export function topicFor(repo) {
@@ -18,17 +18,37 @@ export class Swarm {
 
   // ---- reading -------------------------------------------------------------
 
-  /** Latest manifest reference from the feed. Needs /feeds, so a local node. */
-  async feedManifestRef(owner, topic) {
+  /**
+   * Latest manifest reference from the feed, with the index the next update must
+   * use. Needs /feeds, so a local node.
+   */
+  async feedState(owner, topic) {
     const bee = new Bee(this.settings.api)
     const reader = bee.makeFeedReader(topic, new EthAddress(owner))
     const result = await reader.downloadReference()
-    return result.reference.toHex()
+    return {
+      ref: result.reference.toHex(),
+      nextIndex: result.feedIndexNext ? BigInt(result.feedIndexNext.toBigInt()) : null,
+    }
   }
 
+  async feedManifestRef(owner, topic) {
+    return (await this.feedState(owner, topic)).ref
+  }
+
+  /**
+   * Plain HTTP rather than bee-js downloadFile: when a gateway resolves a feed
+   * manifest it answers with `Content-Disposition: attachment` and no filename,
+   * which bee-js rejects as malformed. Downloads need no header parsing at all,
+   * so this avoids the whole question and works identically against a local node
+   * and a public gateway.
+   */
   async downloadBytes(reference) {
-    const file = await this.read.downloadFile(reference)
-    return Buffer.from(file.data.toUint8Array())
+    const base = this.settings.gateway.replace(/\/+$/, '')
+    const url = `${base}/bzz/${reference}/`
+    const res = await fetch(url, { signal: AbortSignal.timeout(180_000) })
+    if (!res.ok) throw new Error(`GET ${url} returned ${res.status}`)
+    return Buffer.from(await res.arrayBuffer())
   }
 
   async downloadJson(reference) {
@@ -120,10 +140,22 @@ export class Swarm {
     return result.reference.toHex()
   }
 
-  async updateFeed(topic, manifestRef) {
-    const bee = new Bee(this.settings.api, { signer: new PrivateKey(this.settings.key) })
+  /**
+   * Advance the feed to `manifestRef` at an explicit index.
+   *
+   * The index is not optional in practice. Left to find its own, bee-js looks up
+   * the current head of the feed, and immediately after a previous update that
+   * lookup can still return the old index — the update is then written to an
+   * index that already exists, silently ignored, and the feed never moves. The
+   * caller already read the feed to build the push, so it knows the right index.
+   */
+  async updateFeed(topic, manifestRef, index) {
+    const bee = new Bee(this.settings.api)
     const writer = bee.makeFeedWriter(topic, new PrivateKey(this.settings.key))
-    await writer.uploadReference(this.settings.batch, manifestRef)
+    const options = index === null || index === undefined
+      ? {}
+      : { index: FeedIndex.fromBigInt(BigInt(index)) }
+    await writer.uploadReference(this.settings.batch, manifestRef, options)
   }
 
   /**

@@ -39,13 +39,45 @@ Full analysis, options considered and rejected, and the risk register:
 | Phase | Goal | Status |
 |---|---|---|
 | 0 | Static read-only mirror — `git clone` a repo from a Swarm gateway with stock Git | **done** — [results](docs/phase-0-results.md) |
-| 1 | `git-remote-swarm` — real `git push swarm://…` / `git clone swarm://…` | planned |
+| 1 | `git-remote-swarm` — real `git push swarm://…` / `git clone swarm://…` | **done** — [results](docs/phase-1-results.md), [format spec](docs/spec-swarm-git-format-v1.md) |
 | 2 | Forge surface — static web viewer, Git-native issues, ACT private repos | planned |
 | 3 | Ecosystem — Radicle archival seeding, Forgejo post-receive mirror | planned |
 
 Work is tracked as GitHub issues, one per phase plus one per task.
 
-## Try it
+## Use it
+
+Swarm as an ordinary git remote. Install the helper once:
+
+```sh
+npm install && npm link      # puts git-remote-swarm on PATH
+```
+
+Then point a repository at Swarm. Pushing needs a local Bee node, a postage batch and a
+signing key; reading needs none of them.
+
+```sh
+git remote add origin swarm://<owner-address>/<repo-name>
+git config remote.origin.swarmBatch <batch-id>
+git config remote.origin.swarmKey   <hex-private-key>
+
+git push origin main
+git clone swarm://<owner-address>/<repo-name> elsewhere
+```
+
+A read-only clone works through a public gateway with no node, batch or key, using the
+feed manifest form printed by each push:
+
+```sh
+SWARM_GATEWAY=https://download.gateway.ethswarm.org \
+  git clone swarm://bzz/<feed-manifest-ref> elsewhere
+```
+
+Nothing here patches Git. `git-remote-swarm` is an executable on `PATH` — the extension
+point `gitremote-helpers(7)` documents, and the same mechanism Git's own HTTPS transport
+uses.
+
+## Try the Phase 0 mirror
 
 This repository is published on Swarm. Clone it from there with stock `git` — no Bee
 node, no plugin, no account:

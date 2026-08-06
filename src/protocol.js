@@ -30,6 +30,7 @@ export async function run(argv, { stdin = process.stdin, stdout = process.stdout
     target, settings, swarm, topic,
     manifest: null,
     manifestRef: null,
+    feedNextIndex: null,
     options: {},
   }
 
@@ -95,7 +96,9 @@ async function loadManifest(state, { required = true } = {}) {
     if (state.target.mode === 'manifest') {
       state.manifestRef = state.target.feedManifest
     } else {
-      state.manifestRef = await state.swarm.feedManifestRef(state.target.owner, state.topic)
+      const feed = await state.swarm.feedState(state.target.owner, state.topic)
+      state.manifestRef = feed.ref
+      state.feedNextIndex = feed.nextIndex
     }
     state.manifest = m.validate(await state.swarm.downloadJson(state.manifestRef))
   } catch (err) {
@@ -103,6 +106,7 @@ async function loadManifest(state, { required = true } = {}) {
     // An empty repository is not an error on push — it is the first push.
     state.manifest = m.emptyManifest(state.target.repo || '')
     state.manifestRef = null
+    state.feedNextIndex = 0n
     process.stderr.write(`swarm: no existing repository at this address (${err.message})\n`)
   }
   return state.manifest
@@ -236,11 +240,14 @@ async function doPush(state, commands, out) {
       'manifest.json',
       'application/json',
     )
-    await swarm.updateFeed(state.topic, manifestRef)
+    await swarm.updateFeed(state.topic, manifestRef, state.feedNextIndex)
     const feedManifest = await swarm.ensureFeedManifest(state.topic, state.target.owner)
 
     state.manifest = next
     state.manifestRef = manifestRef
+    // Keep the index in step so a second push in the same process does not reuse
+    // an index and get silently dropped.
+    if (state.feedNextIndex !== null) state.feedNextIndex = BigInt(state.feedNextIndex) + 1n
     process.stderr.write(`swarm: manifest ${manifestRef}\nswarm: feed manifest ${feedManifest}\n`)
 
     for (const r of results) out(r)
