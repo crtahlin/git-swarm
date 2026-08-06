@@ -110,13 +110,15 @@
       client-side. There is no backend: nothing runs anywhere except this tab.
     </p>
     <form class="open" id="open-form">
-      <input id="open-input" placeholder="feed manifest reference (64 hex), or <owner>/<repo>" autocomplete="off">
+      <input id="open-input" placeholder="feed manifest reference, ENS name, or <owner>/<repo>" autocomplete="off">
       <button type="submit">Open</button>
     </form>
     <p class="note">
-      A feed manifest reference works through any public gateway. The <code>&lt;owner&gt;/&lt;repo&gt;</code>
-      form needs a local Bee node, because gateways do not serve the <code>/feeds</code> endpoint —
-      pass one with <code>?gateway=http://localhost:1633</code>.
+      A feed manifest reference or an ENS name works through any public gateway — set the name's
+      contenthash to <code>bzz://&lt;feed-manifest&gt;</code> and it keeps resolving to the latest push
+      with no further transactions. The <code>&lt;owner&gt;/&lt;repo&gt;</code> form needs a local Bee
+      node, because gateways do not serve the <code>/feeds</code> endpoint — pass one with
+      <code>?gateway=http://localhost:1633</code>.
     </p>
   </section>
 

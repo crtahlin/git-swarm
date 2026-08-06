@@ -12,18 +12,32 @@ import { createMemFs } from './memfs.js'
 const DIR = '/repo'
 const GITDIR = '/repo/.git'
 
+const FALLBACK_GATEWAY = 'https://bzz.limo'
+
 export function gatewayFromLocation() {
-  // When this page is itself served from a gateway at /bzz/<hash>/, the gateway
-  // root is simply the page's origin — so a viewer published to Swarm reads
-  // repositories through whichever gateway served it.
   const explicit = new URLSearchParams(location.search).get('gateway')
-  return (explicit || location.origin).replace(/\/+$/, '')
+  if (explicit) return explicit.replace(/\/+$/, '')
+
+  // Subdomain-style gateways (eth.limo, bzz.link) serve exactly one ENS name and
+  // have no /bzz/<ref> path, so the page's own origin cannot be used to fetch the
+  // repository. Path-style gateways can, and a viewer served from one should keep
+  // using it rather than sending readers somewhere else.
+  if (/\.(eth\.limo|eth\.link|bzz\.link)$/i.test(location.hostname)) return FALLBACK_GATEWAY
+  if (location.protocol === 'file:') return FALLBACK_GATEWAY
+  return location.origin.replace(/\/+$/, '')
 }
 
 /**
  * Parse the fragment:
- *   #bzz/<feed-manifest-ref>       resolve through a feed manifest (works on a gateway)
- *   #<owner>/<repo>               resolve through /feeds (needs a local Bee node)
+ *   #bzz/<feed-manifest-ref>      resolve a feed manifest by reference
+ *   #ens/<name.eth>              resolve an ENS name whose contenthash is the feed manifest
+ *   #<name.eth>                  same, shorthand
+ *   #<owner>/<repo>              resolve through /feeds (needs a local Bee node)
+ *
+ * ENS names need no special handling beyond being allowed through: a gateway
+ * serves /bzz/<name.eth>/ exactly as it serves /bzz/<reference>/, resolving the
+ * contenthash itself. Verified against swarm.eth on both a local node and
+ * bzz.limo.
  */
 export function parseTarget(hash) {
   const raw = (hash || '').replace(/^#\/?/, '')
@@ -35,10 +49,20 @@ export function parseTarget(hash) {
   if (parts[0] === 'bzz' && /^[0-9a-f]{64}$/i.test(parts[1] || '')) {
     return { mode: 'manifest', ref: parts[1].toLowerCase() }
   }
+  if (parts[0] === 'ens' && isEnsName(parts[1] || '')) {
+    return { mode: 'manifest', ref: parts[1].toLowerCase() }
+  }
+  if (parts.length === 1 && isEnsName(parts[0])) {
+    return { mode: 'manifest', ref: parts[0].toLowerCase() }
+  }
   if (/^(0x)?[0-9a-f]{40}$/i.test(parts[0] || '') && parts[1]) {
     return { mode: 'feed', owner: parts[0].replace(/^0x/i, '').toLowerCase(), repo: parts.slice(1).join('/') }
   }
   return null
+}
+
+function isEnsName(value) {
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)*\.eth$/i.test(value)
 }
 
 async function fetchBytes(gateway, reference) {

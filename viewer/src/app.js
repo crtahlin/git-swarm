@@ -224,7 +224,11 @@ $('open-form').addEventListener('submit', (event) => {
   event.preventDefault()
   const value = $('open-input').value.trim()
   if (!value) return
-  location.hash = /^[0-9a-f]{64}$/i.test(value) ? `#bzz/${value}` : `#${value.replace(/^#/, '')}`
+  location.hash = /^[0-9a-f]{64}$/i.test(value)
+    ? `#bzz/${value}`
+    : /^[a-z0-9-]+(\.[a-z0-9-]+)*\.eth$/i.test(value)
+      ? `#ens/${value}`
+      : `#${value.replace(/^#/, '')}`
   boot()
 })
 
