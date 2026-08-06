@@ -11,3 +11,4 @@ work/
 out/
 tmp/
 *.pack.tmp
+viewer/dist/

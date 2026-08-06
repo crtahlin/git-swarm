@@ -61,12 +61,22 @@ export function packObjects(tips, excludes, outPath) {
     const out = createWriteStream(outPath)
     child.stdout.pipe(out)
 
+    // Wait for BOTH the child to exit and the file to finish writing. Resolving
+    // on the stream alone reads child.exitCode before the process has exited and
+    // rejects with an empty error — which only shows up once a repository is big
+    // enough for the two to complete in a different order.
+    let exitCode = null
+    let streamClosed = false
+    const settle = () => {
+      if (exitCode === null || !streamClosed) return
+      if (exitCode === 0) resolve(outPath)
+      else reject(new Error(`git pack-objects exited ${exitCode}: ${stderr.trim() || '(no output)'}`))
+    }
+
     child.on('error', reject)
     out.on('error', reject)
-    out.on('close', () => {
-      if (child.exitCode === 0) resolve(outPath)
-      else reject(new Error(`git pack-objects failed: ${stderr.trim()}`))
-    })
+    child.on('close', (code) => { exitCode = code; settle() })
+    out.on('close', () => { streamClosed = true; settle() })
 
     const spec = [...tips, ...excludes.map((sha) => `^${sha}`)].join('\n')
     child.stdin.end(spec + '\n')
