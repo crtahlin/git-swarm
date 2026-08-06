@@ -25,8 +25,12 @@ GATEWAY="${SWARM_GATEWAY:-https://bzz.limo}"
 
 [ -n "$BATCH" ] || { echo "SWARM_BATCH_ID is not set (see .env.example)" >&2; exit 78; }
 
-echo "==> building"
-(cd "$HERE/viewer" && npm run --silent build 2>/dev/null || node build.mjs)
+# The repository this build opens when no fragment is given. Default is this
+# project's own repo, so the published page is useful the moment it loads.
+DEFAULT_TARGET="${VIEWER_DEFAULT_TARGET:-bzz/2659451ac307f86a6e9f2286ffbfc7f33776d0f154ce899eab4ea535ab35a237}"
+
+echo "==> building (default repository: $DEFAULT_TARGET)"
+(cd "$HERE/viewer" && VIEWER_DEFAULT_TARGET="$DEFAULT_TARGET" node build.mjs)
 
 echo "==> publishing to feed '$TOPIC' as identity '$IDENTITY'"
 out=$(swarm-cli feed upload "$HERE/viewer/dist" \

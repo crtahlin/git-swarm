@@ -17,7 +17,13 @@ await build({
   format: 'iife',
   target: ['es2020'],
   outfile: 'dist/app.js',
-  define: { 'process.env.NODE_ENV': '"production"', global: 'globalThis' },
+  define: {
+    'process.env.NODE_ENV': '"production"',
+    global: 'globalThis',
+    // Which repository this build opens when no fragment is given. Any deployment
+    // can bake its own; the landing form is still one click away.
+    __DEFAULT_TARGET__: JSON.stringify(process.env.VIEWER_DEFAULT_TARGET || ''),
+  },
   mainFields: ['module', 'main'],
   inject: ['./src/node-shims.js'],
   logLevel: 'info',

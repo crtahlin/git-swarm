@@ -31,8 +31,13 @@ function hideStatus() {
 
 // --- boot -------------------------------------------------------------------
 
+// Baked in at build time (see build.mjs). A deployment of this viewer opens its
+// own repository rather than an empty form — the page is useful the moment it
+// loads, and the landing form stays one click away.
+const DEFAULT_TARGET = typeof __DEFAULT_TARGET__ === 'string' ? __DEFAULT_TARGET__ : ''
+
 async function boot() {
-  const target = parseTarget(location.hash)
+  const target = parseTarget(location.hash) || (DEFAULT_TARGET ? parseTarget('#' + DEFAULT_TARGET) : null)
   if (!target) return showLanding()
 
   const prefix = targetPrefix(target)
@@ -293,6 +298,14 @@ function formatBytes(n) {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} kB`
   return `${(n / 1024 / 1024).toFixed(1)} MB`
 }
+
+$('open-other').addEventListener('click', (event) => {
+  event.preventDefault()
+  state.repo = null
+  state.prefix = ''
+  history.replaceState(null, '', location.pathname + location.search)
+  showLanding()
+})
 
 $('open-form').addEventListener('submit', (event) => {
   event.preventDefault()

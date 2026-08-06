@@ -93,6 +93,10 @@ Both halves of that URL are Swarm **feeds**, so both are permanent: the left one
 viewer, republished with `./scripts/publish-viewer.sh`; the right one is this repository,
 advanced by every `git push`. Neither address changes when the content does.
 
+The viewer opens this repository by default, so the bare address works too:
+[bzz.limo/bzz/09a5c892…](https://bzz.limo/bzz/09a5c8924336625cad2dc0be13c0dd74f8b5d1d33fb9ba5b057340893188a19c/).
+Another deployment bakes in its own with `VIEWER_DEFAULT_TARGET`.
+
 Use **bzz.limo**, not `download.gateway.ethswarm.org` — the latter sends
 `Content-Disposition: attachment`, so a browser saves the page instead of rendering it
 ([why](docs/addressing.md#which-gateway)). Source in [`viewer/`](viewer/).
