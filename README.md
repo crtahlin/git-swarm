@@ -87,7 +87,11 @@ This project's own repository, rendered by a viewer that is itself stored on Swa
 No server, no backend — the page fetches the packfiles and reconstructs the repository
 in your browser:
 
-**[bzz.limo/bzz/4ca221bf…/#bzz/2659451a…](https://bzz.limo/bzz/4ca221bfec68140441e8fa341162f47c293f1cba6cf1bba8470d86a8f1117808/#bzz/2659451ac307f86a6e9f2286ffbfc7f33776d0f154ce899eab4ea535ab35a237)**
+**[bzz.limo/bzz/09a5c892…/#bzz/2659451a…](https://bzz.limo/bzz/09a5c8924336625cad2dc0be13c0dd74f8b5d1d33fb9ba5b057340893188a19c/#bzz/2659451ac307f86a6e9f2286ffbfc7f33776d0f154ce899eab4ea535ab35a237)**
+
+Both halves of that URL are Swarm **feeds**, so both are permanent: the left one is the
+viewer, republished with `./scripts/publish-viewer.sh`; the right one is this repository,
+advanced by every `git push`. Neither address changes when the content does.
 
 Use **bzz.limo**, not `download.gateway.ethswarm.org` — the latter sends
 `Content-Disposition: attachment`, so a browser saves the page instead of rendering it

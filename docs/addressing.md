@@ -99,8 +99,17 @@ manifest address never changes while always serving the newest push, so the ENS 
 set once and every later push is visible at that name with no further transaction. The Bee
 docs recommend the same pattern for websites.
 
-Worth doing for the viewer too: publish it to its own feed and point the name at that feed
-manifest, so shipping a viewer update becomes a push rather than an ENS transaction.
+The viewer is published the same way, by `scripts/publish-viewer.sh`, which uploads the
+build to a feed rather than as a plain upload. A plain upload mints a new reference on
+every build, which invalidates every link you have handed out and would need an ENS
+transaction each time. Behind a feed the address is fixed for the life of the topic.
+
+Live addresses for this project, both stable:
+
+| | |
+|---|---|
+| Viewer feed manifest | `09a5c8924336625cad2dc0be13c0dd74f8b5d1d33fb9ba5b057340893188a19c` |
+| Repository feed manifest | `2659451ac307f86a6e9f2286ffbfc7f33776d0f154ce899eab4ea535ab35a237` |
 
 ### Reading by name works today
 
