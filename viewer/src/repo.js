@@ -14,17 +14,35 @@ const GITDIR = '/repo/.git'
 
 const FALLBACK_GATEWAY = 'https://bzz.limo'
 
+/** Sentinel: the page is in a browser that speaks bzz:// natively. */
+export const NATIVE_BZZ = 'bzz:'
+
 export function gatewayFromLocation() {
   const explicit = new URLSearchParams(location.search).get('gateway')
   if (explicit) return explicit.replace(/\/+$/, '')
+
+  // A Swarm-native browser (Freedom Browser) serves this page from bzz://<name>/.
+  // Its origin is not an HTTP gateway — appending /bzz/<ref>/ to it asks for a
+  // path *inside* that name, which is a 404. Resolve references natively instead.
+  if (location.protocol === NATIVE_BZZ) return NATIVE_BZZ
 
   // Subdomain-style gateways (eth.limo, bzz.link) serve exactly one ENS name and
   // have no /bzz/<ref> path, so the page's own origin cannot be used to fetch the
   // repository. Path-style gateways can, and a viewer served from one should keep
   // using it rather than sending readers somewhere else.
   if (/\.(eth\.limo|eth\.link|bzz\.link)$/i.test(location.hostname)) return FALLBACK_GATEWAY
-  if (location.protocol === 'file:') return FALLBACK_GATEWAY
+  if (!/^https?:$/.test(location.protocol)) return FALLBACK_GATEWAY
   return location.origin.replace(/\/+$/, '')
+}
+
+/** Every way we know of to ask for one reference, best first. */
+function candidateUrls(gateway, reference) {
+  const urls = gateway === NATIVE_BZZ
+    ? [`bzz://${reference}/`]
+    : [`${gateway}/bzz/${reference}/`]
+  const fallback = `${FALLBACK_GATEWAY}/bzz/${reference}/`
+  if (!urls.includes(fallback)) urls.push(fallback)
+  return urls
 }
 
 /**
@@ -87,9 +105,20 @@ function isEnsName(value) {
 }
 
 async function fetchBytes(gateway, reference) {
-  const res = await fetch(`${gateway}/bzz/${reference}/`)
-  if (!res.ok) throw new Error(`gateway returned ${res.status} for ${reference.slice(0, 8)}…`)
-  return new Uint8Array(await res.arrayBuffer())
+  // Try native resolution first where it exists, then a public gateway. A
+  // Swarm-native browser may not implement fetch() for its own scheme, and
+  // falling back beats failing.
+  let last = null
+  for (const url of candidateUrls(gateway, reference)) {
+    try {
+      const res = await fetch(url)
+      if (res.ok) return new Uint8Array(await res.arrayBuffer())
+      last = `${url.split('/bzz/')[0] || url} returned ${res.status}`
+    } catch (err) {
+      last = `${url} failed: ${err.message}`
+    }
+  }
+  throw new Error(`could not fetch ${reference.slice(0, 8)}… — ${last}`)
 }
 
 export async function resolveManifest(gateway, target) {
