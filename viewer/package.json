@@ -20,5 +20,8 @@
     "memfs": "^4.68.0",
     "process": "^0.11.10"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "puppeteer-core": "^25.5.0"
+  }
 }

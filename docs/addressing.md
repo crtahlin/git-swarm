@@ -136,7 +136,7 @@ from its own origin. The viewer detects this and falls back to a path-style gate
 
 An ENS contenthash names *content*; a push needs the feed's **owner address**, which a
 contenthash cannot supply. The route is the ordinary `addr` record, and the cost is an
-Ethereum RPC inside the helper — see [#25](https://github.com/crtahlin/swarm-git-POC/issues/25).
+Ethereum RPC inside the helper — see [#25](https://github.com/crtahlin/git-swarm/issues/25).
 
 Nothing is blocked by its absence: anyone who can push already holds the key, and
 therefore already knows the owner address.

@@ -1,4 +1,4 @@
-# swarm-git-POC
+# git-swarm
 
 Proof of concept for hosting Git repositories — and eventually a full code forge — on
 [Ethereum Swarm](https://www.ethswarm.org/).

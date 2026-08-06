@@ -1,7 +1,7 @@
 # Phase 1 results — git push and git clone against Swarm
 
 Date: 2026-08-06
-Issues: [#2](https://github.com/crtahlin/swarm-git-POC/issues/2) (epic), #11, #12, #13, #14
+Issues: [#2](https://github.com/crtahlin/git-swarm/issues/2) (epic), #11, #12, #13, #14
 
 ## Verdict
 
@@ -152,7 +152,7 @@ an owner address, since they hold the key.
 
 - **Performance at size.** The 22 MB `bee-js` comparison against the Phase 0 baseline of
   41 seconds is not run: the development batch is at 62.5% utilisation, and a 22 MB push
-  would exhaust it. Pending on [#8](https://github.com/crtahlin/swarm-git-POC/issues/8),
+  would exhaust it. Pending on [#8](https://github.com/crtahlin/git-swarm/issues/8),
   and it needs a diluted or larger batch first.
 - **Fetch optimisation.** A clone downloads every pack listed in the manifest. The
   `tips`/`base` fields exist so packs whose objects are already present can be skipped;

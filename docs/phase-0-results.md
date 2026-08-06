@@ -52,7 +52,7 @@ Feed address for this repository: `b9250d4dd334ad8b140e754d08904328b5ff2e80f07a7
 
 | Repository | Mirror size | Publish | Clone from Swarm gateway | Clone from GitHub |
 |---|---|---|---|---|
-| swarm-git-POC (this repo) | 52 kB | ~3 s | 8–17 s (feed) / <1 s (snapshot) | — |
+| git-swarm (this repo) | 52 kB | ~3 s | 8–17 s (feed) / <1 s (snapshot) | — |
 | ethersphere/bee-js | 22 MB | 15 s | **41 s** | **2 s** |
 
 Roughly **20× slower than GitHub** for a 22 MB repository. That is a usable number for
