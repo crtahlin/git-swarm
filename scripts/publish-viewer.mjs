@@ -16,14 +16,16 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const HERE = join(dirname(fileURLToPath(import.meta.url)), '..')
-const SECRETS = join(HERE, '..', 'adapt-to-swarm-secrets')
+// Where the feed signing key lives. Override with SWARM_KEYFILE; the default
+// points outside this repository on purpose, so no secret is ever near a commit.
+const KEYFILE = process.env.SWARM_KEYFILE || join(HERE, '..', 'secrets', 'feed-owner.key')
 
 const BEE_API = process.env.BEE_API || 'http://localhost:1633'
 const TOPIC_STRING = 'git-swarm:viewer:v1'
 const LABEL = 'git'
 
 const env = Object.fromEntries(
-  readFileSync(join(SECRETS, 'feed-owner.key'), 'utf8')
+  readFileSync(KEYFILE, 'utf8')
     .split('\n').filter((l) => l.includes('='))
     .map((l) => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1).trim()]),
 )
@@ -33,7 +35,11 @@ const topic = Topic.fromString(TOPIC_STRING)
 
 const bee = new Bee(BEE_API)
 const batch = (await bee.getPostageBatches()).find((b) => b.usable)
-if (!batch) throw new Error(`no usable postage batch on ${BEE_API} (is Nook’s Bee running?)`)
+if (!batch) throw new Error(
+  `no usable postage batch on ${BEE_API}.\n` +
+  '  A batch can only issue stamps from the node that bought it — check you are\n' +
+  '  pointed at that node.',
+)
 
 // Which repository this build opens when no fragment is given.
 const defaultTarget = process.env.VIEWER_DEFAULT_TARGET
@@ -69,7 +75,8 @@ await bee.makeFeedWriter(topic, key).uploadReference(batch.batchID, upload.refer
 const feed = (await bee.createFeedManifest(batch.batchID, topic, owner)).toHex()
 
 // Record it where the other five are recorded, so the topic is never lost again.
-const path = join(SECRETS, 'feed-manifests.json')
+// Recorded beside the key, wherever that is.
+const path = join(dirname(KEYFILE), 'feed-manifests.json')
 const manifests = JSON.parse(readFileSync(path, 'utf8'))
 manifests[LABEL] = {
   ens_name: 'git.ontheswarm.eth',

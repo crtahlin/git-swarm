@@ -11,7 +11,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-KEYFILE="${SWARM_KEYFILE:-$HERE/../adapt-to-swarm-secrets/feed-owner.key}"
+KEYFILE="${SWARM_KEYFILE:-$HERE/../secrets/feed-owner.key}"
 REMOTE="${REMOTE:-swarm}"
 
 [ -f "$KEYFILE" ] || { echo "no key file at $KEYFILE" >&2; exit 78; }

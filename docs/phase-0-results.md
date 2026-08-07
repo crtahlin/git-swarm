@@ -46,7 +46,7 @@ URL returned the new commit**. That is the authenticated mutable pointer that Gi
 and that a centralised forge normally provides.
 
 Feed address for this repository: `b9250d4dd334ad8b140e754d08904328b5ff2e80f07a7c4dd0fc3a65bbc8601c`
-(owner `0x73d43cc0623afaef3fa416a1b06608d01bcb22d4`, topic `swarm-git-poc`).
+(topic `swarm-git-poc`; the owner address is whichever key signs the feed).
 
 ## Measurements
 
@@ -67,7 +67,7 @@ The feed path costs a fixed penalty (feed lookup) that dominates for small repos
 
 | | |
 |---|---|
-| Batch | `be02ac7973a269ec32386f46a3a96945f05571ad81f578c073744f96dcf526ab` |
+| Batch | a depth-19 immutable batch bought for the phase |
 | Type | Immutable, depth 19, amount 8,423,654,400 |
 | Cost | **0.441 xBZZ** (wallet 3.818 → 3.377) |
 | Capacity | 102.49 MB usable |

@@ -112,7 +112,7 @@ Live addresses for this project, both stable:
 | Repository | `de4a9c970f265dbff707ac01f3bfa825d119a4dcdbcfeae41eff4a338f41d2d1` | — |
 
 Both are signed by the shared `ontheswarm` feed owner `0x73d43cC0…`, the same key
-behind the other five apps. An earlier throwaway key (`0x7f651ac3…`, generated with
+behind the other five apps. An earlier throwaway key (generated with
 `swarm-cli identity create --only-keypair` and therefore stored in cleartext) signed the
 first published versions; those feeds are abandoned. Anything signed by that key should
 be treated as untrusted.

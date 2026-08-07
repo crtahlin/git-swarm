@@ -118,7 +118,7 @@ A JSON document, uploaded as a single bzz file with content type `application/js
     {
       "ref":   "eb1f380f6a94c2ceb4a8d9e67f423f7a3d3a7eac…",
       "size":  1048576,
-      "batch": "be02ac7973a269ec32386f46a3a96945f05571ad…",
+      "batch": "<postage-batch-id>",
       "tips":  ["2288fcf3577c7c4a0f485c3329f8e8405b74adfe"],
       "base":  ["43800f7e2b4a298c597c6028deaf422d45f0ad25"]
     }
@@ -274,10 +274,10 @@ From the live Phase 0 publication, useful for testing a reader:
 
 | | |
 |---|---|
-| Owner | `0x73d43cc0623afaef3fa416a1b06608d01bcb22d4` |
+| Owner | the address of the key signing the feed |
 | Topic (swarm-cli derivation, not §2.2) | `d8c64654ce0646486a318b335d0deb69da999f348bb111384c564293c4fd966c` |
 | Feed manifest | `b9250d4dd334ad8b140e754d08904328b5ff2e80f07a7c4dd0fc3a65bbc8601c` |
-| Batch | `be02ac7973a269ec32386f46a3a96945f05571ad81f578c073744f96dcf526ab`, immutable, depth 19, expires ~2026-08-13 |
+| Batch | a depth-19 immutable batch, since expired |
 
 That feed predates this spec: it holds a Phase 0 dumb-HTTP tree rather than a
 `swarm-git/1` manifest, and its topic uses swarm-cli's derivation. It is reachable with
