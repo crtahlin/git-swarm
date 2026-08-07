@@ -72,6 +72,16 @@ try {
 } catch { /* first publication */ }
 
 await bee.makeFeedWriter(topic, key).uploadReference(batch.batchID, upload.reference, { index: next })
+
+// Read back: a feed write can succeed and publish nothing, if the index already
+// exists. The network keeps the chunk it has; only this node sees the change.
+const after = await bee.makeFeedReader(topic, owner).downloadReference()
+if (after.reference.toHex() !== upload.reference.toHex()) {
+  throw new Error(
+    `feed did not advance — it resolves to ${after.reference.toHex().slice(0, 12)}…, ` +
+    `not what was just uploaded. Nothing was published.`,
+  )
+}
 const feed = (await bee.createFeedManifest(batch.batchID, topic, owner)).toHex()
 
 // Record it where the other five are recorded, so the topic is never lost again.

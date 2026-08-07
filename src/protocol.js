@@ -242,7 +242,17 @@ async function doPush(state, commands, out) {
       'manifest.json',
       'application/json',
     )
-    await swarm.updateFeed(state.topic, manifestRef, state.feedNextIndex)
+
+    // Re-read the index immediately before writing. Packing and uploading can
+    // take a while, and an index read at the start of a push — or read while the
+    // node was still reconnecting — goes stale. Writing at an index that already
+    // exists publishes nothing.
+    let writeIndex = state.feedNextIndex
+    if (state.target.mode === 'feed') {
+      const fresh = await swarm.feedState(state.target.owner, state.topic).catch(() => null)
+      if (fresh?.nextIndex !== null && fresh?.nextIndex !== undefined) writeIndex = fresh.nextIndex
+    }
+    await swarm.updateFeed(state.topic, state.target.owner, manifestRef, writeIndex)
     const feedManifest = await swarm.ensureFeedManifest(state.topic, state.target.owner)
 
     state.manifest = next

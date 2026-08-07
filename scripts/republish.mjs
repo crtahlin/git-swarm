@@ -78,7 +78,7 @@ try {
   const manifestRef = await swarm.uploadFile(
     Buffer.from(JSON.stringify(manifest, null, 2)), 'manifest.json', 'application/json',
   )
-  await swarm.updateFeed(topic, manifestRef, before.nextIndex)
+  await swarm.updateFeed(topic, target.owner, manifestRef, before.nextIndex)
   const feedManifest = await swarm.ensureFeedManifest(topic, target.owner)
 
   console.log(`

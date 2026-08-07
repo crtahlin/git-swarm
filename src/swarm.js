@@ -149,13 +149,35 @@ export class Swarm {
    * index that already exists, silently ignored, and the feed never moves. The
    * caller already read the feed to build the push, so it knows the right index.
    */
-  async updateFeed(topic, manifestRef, index) {
+  async updateFeed(topic, owner, manifestRef, index) {
     const bee = new Bee(this.settings.api)
     const writer = bee.makeFeedWriter(topic, new PrivateKey(this.settings.key))
     const options = index === null || index === undefined
       ? {}
       : { index: FeedIndex.fromBigInt(BigInt(index)) }
     await writer.uploadReference(this.settings.batch, manifestRef, options)
+
+    // Read back, because a feed write can succeed and publish nothing.
+    //
+    // A chunk address is immutable on the network. Writing an update at an index
+    // that already exists is accepted locally — you own the key — but the network
+    // keeps the chunk it already has. The result is a node that serves the new
+    // state while everyone else sees the old one, with every call reporting
+    // success. Seen in the wild: a push after a node restart computed a stale
+    // index, rewrote the previous one, and silently published nothing.
+    const after = await this.feedState(owner, topic).catch(() => null)
+    if (!after) {
+      throw new Error('feed updated but could not be read back to confirm — treat as unpublished')
+    }
+    if (after.ref !== String(manifestRef)) {
+      throw new Error(
+        'feed did not advance: it still resolves to ' + after.ref.slice(0, 12) + '…, ' +
+          'not the manifest just written (' + String(manifestRef).slice(0, 12) + '…).\n' +
+          '  The update was probably written at an index that already exists, which the\n' +
+          '  network ignores. Fetch and retry.',
+      )
+    }
+    return after
   }
 
   /**
