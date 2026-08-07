@@ -88,7 +88,7 @@ You need `git-remote-bzz` on `PATH` first, and it ships in this repository — s
 copy has to come from somewhere stock `git` can already read:
 
 ```sh
-git clone https://github.com/crtahlin/swarm-git-POC.git git-swarm   # or your fork
+git clone https://github.com/crtahlin/git-swarm.git git-swarm   # or your fork
 cd git-swarm && npm install && npm link
 ```
 

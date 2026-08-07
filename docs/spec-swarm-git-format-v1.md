@@ -1,6 +1,6 @@
 # swarm-git format, version 1
 
-Status: draft · Date: 2026-08-06 · Issue: [#11](https://github.com/crtahlin/swarm-git-POC/issues/11)
+Status: draft · Date: 2026-08-06 · Issue: [#11](https://github.com/crtahlin/git-swarm/issues/11)
 
 How a Git repository is represented on Ethereum Swarm, so that `git clone`, `git fetch`
 and `git push` work against a `bzz` remote with no server involved.
@@ -240,7 +240,7 @@ A feed has exactly one writer key, so v1 assumes a single writer. It does not pr
 otherwise; it detects the problem instead. If the feed has moved past the manifest
 recorded in step 1 by the time the writer is ready to publish, the push MUST be rejected
 rather than overwriting. Multi-writer collaboration is a later version
-([#16](https://github.com/crtahlin/swarm-git-POC/issues/16)).
+([#16](https://github.com/crtahlin/git-swarm/issues/16)).
 
 ### 6.3 Postage
 
