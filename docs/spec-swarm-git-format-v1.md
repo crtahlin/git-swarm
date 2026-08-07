@@ -274,7 +274,7 @@ From the live Phase 0 publication, useful for testing a reader:
 
 | | |
 |---|---|
-| Owner | `0x7f651ac31490cea51c509ec17619c4900097685d` |
+| Owner | `0x73d43cc0623afaef3fa416a1b06608d01bcb22d4` |
 | Topic (swarm-cli derivation, not §2.2) | `d8c64654ce0646486a318b335d0deb69da999f348bb111384c564293c4fd966c` |
 | Feed manifest | `b9250d4dd334ad8b140e754d08904328b5ff2e80f07a7c4dd0fc3a65bbc8601c` |
 | Batch | `be02ac7973a269ec32386f46a3a96945f05571ad81f578c073744f96dcf526ab`, immutable, depth 19, expires ~2026-08-13 |

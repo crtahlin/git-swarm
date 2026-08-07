@@ -46,7 +46,7 @@ URL returned the new commit**. That is the authenticated mutable pointer that Gi
 and that a centralised forge normally provides.
 
 Feed address for this repository: `b9250d4dd334ad8b140e754d08904328b5ff2e80f07a7c4dd0fc3a65bbc8601c`
-(owner `0x7f651ac31490cea51c509ec17619c4900097685d`, topic `swarm-git-poc`).
+(owner `0x73d43cc0623afaef3fa416a1b06608d01bcb22d4`, topic `swarm-git-poc`).
 
 ## Measurements
 

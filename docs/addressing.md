@@ -106,10 +106,16 @@ transaction each time. Behind a feed the address is fixed for the life of the to
 
 Live addresses for this project, both stable:
 
-| | |
-|---|---|
-| Viewer feed manifest | `09a5c8924336625cad2dc0be13c0dd74f8b5d1d33fb9ba5b057340893188a19c` |
-| Repository feed manifest | `2659451ac307f86a6e9f2286ffbfc7f33776d0f154ce899eab4ea535ab35a237` |
+| What | Feed manifest | ENS |
+|---|---|---|
+| Viewer | `02a7f5a1109e7058734055cf07be6c361ce13534fb43ecf09a6020018020be43` | `git.ontheswarm.eth` |
+| Repository | `de4a9c970f265dbff707ac01f3bfa825d119a4dcdbcfeae41eff4a338f41d2d1` | — |
+
+Both are signed by the shared `ontheswarm` feed owner `0x73d43cC0…`, the same key
+behind the other five apps. An earlier throwaway key (`0x7f651ac3…`, generated with
+`swarm-cli identity create --only-keypair` and therefore stored in cleartext) signed the
+first published versions; those feeds are abandoned. Anything signed by that key should
+be treated as untrusted.
 
 ### Reading by name works today
 

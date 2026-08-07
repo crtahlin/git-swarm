@@ -17,7 +17,7 @@ import puppeteer from 'puppeteer-core'
 
 const run = promisify(execFile)
 
-const URL_ = process.argv[2] || 'http://localhost:1633/bzz/09a5c8924336625cad2dc0be13c0dd74f8b5d1d33fb9ba5b057340893188a19c/'
+const URL_ = process.argv[2] || 'http://localhost:1633/bzz/02a7f5a1109e7058734055cf07be6c361ce13534fb43ecf09a6020018020be43/'
 const OUT = process.argv[3] || 'demo.mp4'
 const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const FPS = 12

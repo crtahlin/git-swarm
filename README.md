@@ -71,7 +71,7 @@ the current tree fixes that, and doing it on every push would keep it fixed. See
 ### If you have the helper
 
 ```sh
-git clone bzz://2659451ac307f86a6e9f2286ffbfc7f33776d0f154ce899eab4ea535ab35a237 git-swarm
+git clone bzz://de4a9c970f265dbff707ac01f3bfa825d119a4dcdbcfeae41eff4a338f41d2d1 git-swarm
 ```
 
 No Bee node, no postage batch, no key — reading is free. To read through a specific
@@ -79,7 +79,7 @@ gateway rather than a local node:
 
 ```sh
 SWARM_GATEWAY=https://bzz.limo \
-  git clone bzz://2659451ac307f86a6e9f2286ffbfc7f33776d0f154ce899eab4ea535ab35a237 git-swarm
+  git clone bzz://de4a9c970f265dbff707ac01f3bfa825d119a4dcdbcfeae41eff4a338f41d2d1 git-swarm
 ```
 
 ### If you do not
@@ -151,14 +151,14 @@ This project's own repository, rendered by a viewer that is itself stored on Swa
 No server, no backend — the page fetches the packfiles and reconstructs the repository
 in your browser:
 
-**[bzz.limo/bzz/09a5c892…/#bzz/2659451a…](https://bzz.limo/bzz/09a5c8924336625cad2dc0be13c0dd74f8b5d1d33fb9ba5b057340893188a19c/#bzz/2659451ac307f86a6e9f2286ffbfc7f33776d0f154ce899eab4ea535ab35a237)**
+**[bzz.limo/bzz/09a5c892…/#bzz/2659451a…](https://bzz.limo/bzz/02a7f5a1109e7058734055cf07be6c361ce13534fb43ecf09a6020018020be43/#bzz/de4a9c970f265dbff707ac01f3bfa825d119a4dcdbcfeae41eff4a338f41d2d1)**
 
 Both halves of that URL are Swarm **feeds**, so both are permanent: the left one is the
 viewer, republished with `./scripts/publish-viewer.sh`; the right one is this repository,
 advanced by every `git push`. Neither address changes when the content does.
 
 The viewer opens this repository by default, so the bare address works too:
-[bzz.limo/bzz/09a5c892…](https://bzz.limo/bzz/09a5c8924336625cad2dc0be13c0dd74f8b5d1d33fb9ba5b057340893188a19c/).
+[bzz.limo/bzz/09a5c892…](https://bzz.limo/bzz/02a7f5a1109e7058734055cf07be6c361ce13534fb43ecf09a6020018020be43/).
 Another deployment bakes in its own with `VIEWER_DEFAULT_TARGET`.
 
 Use **bzz.limo**, not `download.gateway.ethswarm.org` — the latter sends
