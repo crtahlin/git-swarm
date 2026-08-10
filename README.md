@@ -62,11 +62,12 @@ git clone https://bzz.limo/bzz/<feed-manifest>/ git-swarm
 That is Git's dumb-HTTP transport reading a tree published by
 `scripts/swarm-git-mirror.sh`. It needs no helper, no node, no key and no environment.
 
-**Caveat, and it is the important one:** the mirror is only as current as the last time
-that script was run. The published mirror at
-`b9250d4dd334ad8b140e754d08904328b5ff2e80f07a7c4dd0fc3a65bbc8601c` is a Phase 0 snapshot —
-it predates the helper, so it cannot bootstrap anyone today. Re-running the mirror against
-the current tree fixes that, and doing it on every push would keep it fixed. See #26.
+It is kept behind a feed, so the address below is stable across republications — refresh
+it after a release with `./scripts/publish-mirror.mjs`.
+
+```
+94189800f037ae60a2910d56a5447d051819dfbbdedf618eb72f38378bcb6955
+```
 
 ### If you have the helper
 
@@ -101,46 +102,6 @@ cd git-swarm
 git log --oneline -3
 git fsck            # every object is hash-verified; a bad byte cannot survive this
 ```
-
-> **Known gap.** A Phase 0 dumb-HTTP mirror exists at
-> `b9250d4dd334ad8b140e754d08904328b5ff2e80f07a7c4dd0fc3a65bbc8601c`, clonable with stock
-> `git` and no helper — but it is a Phase 0 snapshot, predating the helper itself, so it
-> cannot bootstrap you. Re-running `scripts/swarm-git-mirror.sh` against the current tree
-> would close that loop and make Swarm-only bootstrapping real: stock `git` clone → `npm
-> link` → native `bzz://` from then on.
-
-## Before you push anything
-
-**What goes onto Swarm cannot be taken back.** Uploads are content-addressed and
-replicated to nodes you do not control. There is no delete, no overwrite, and no
-takedown — not by you, not by anyone.
-
-For a Git tool this has a sharper edge than usual, because the habits that normally
-save you do not work here:
-
-- **`git push --force` does not unpublish anything.** It moves the feed to a new
-  manifest. Every earlier manifest and every earlier packfile is still on Swarm at its
-  own address, still readable by anyone holding the reference.
-- **Rewriting history does not remove it.** `git rebase`, `git commit --amend` and
-  `git filter-repo` change what your repository points at, not what Swarm already
-  stores.
-- **A committed secret is a published secret.** If a key, token or password reaches a
-  push, treat it as compromised and rotate it. Removing it from the working tree
-  changes nothing.
-
-Unencrypted uploads are world-readable by anyone with the reference, and references
-appear in manifests, feeds and links. Assume anything you publish is public and
-permanent.
-
-Two honest qualifications, because "permanent" is often overstated:
-
-- Storage is **rented**. When a postage batch lapses, content stops being retrievable
-  from the network — so data can *disappear*, even though you cannot *delete* it. Those
-  are different things, and neither is under your control once published.
-- Anyone who fetched it already has a copy, whatever happens to the batch.
-
-Private repositories need encryption at upload time, which is not implemented yet.
-Until then, publish nothing you would not put on a public website.
 
 ## Use it
 
@@ -198,18 +159,15 @@ Use **bzz.limo**, not `download.gateway.ethswarm.org` — the latter sends
 `Content-Disposition: attachment`, so a browser saves the page instead of rendering it
 ([why](docs/addressing.md#which-gateway)). Source in [`viewer/`](viewer/).
 
-## Try the Phase 0 mirror
+## The mirror, and why it matters
 
-This repository is published on Swarm. Clone it from there with stock `git` — no Bee
-node, no plugin, no account:
+The HTTPS clone above is a **dumb-HTTP mirror**: a bare repository published to Swarm as
+a static file tree, which stock `git` clones with no plugin, no node and no key.
 
-```sh
-git clone https://download.gateway.ethswarm.org/bzz/b9250d4dd334ad8b140e754d08904328b5ff2e80f07a7c4dd0fc3a65bbc8601c/ swarm-git-poc
-```
-
-That URL is a Swarm feed, so it keeps pointing at the latest published state. It stays
-alive only while its postage batch is topped up — see the cost section of the
-[Phase 0 results](docs/phase-0-results.md).
+The helper ships *inside* this repository, so without a mirror the only way to get a first
+copy is a centralised forge — the dependency this project exists to remove. With it the
+loop closes: clone from Swarm with stock git, `npm link`, and everything after that can be
+native `bzz://`.
 
 ## Layout
 
