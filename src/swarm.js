@@ -165,19 +165,25 @@ export class Swarm {
     // state while everyone else sees the old one, with every call reporting
     // success. Seen in the wild: a push after a node restart computed a stale
     // index, rewrote the previous one, and silently published nothing.
-    const after = await this.feedState(owner, topic).catch(() => null)
+    // The node's own feed lookup can lag its own write by a moment, so a single
+    // immediate read produces a false failure. Retry briefly before concluding
+    // anything: a genuine drop stays wrong, a lagging lookup catches up.
+    let after = null
+    for (let attempt = 0; attempt < 6; attempt++) {
+      after = await this.feedState(owner, topic).catch(() => null)
+      if (after?.ref === String(manifestRef)) return after
+      await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)))
+    }
+
     if (!after) {
       throw new Error('feed updated but could not be read back to confirm — treat as unpublished')
     }
-    if (after.ref !== String(manifestRef)) {
-      throw new Error(
-        'feed did not advance: it still resolves to ' + after.ref.slice(0, 12) + '…, ' +
-          'not the manifest just written (' + String(manifestRef).slice(0, 12) + '…).\n' +
-          '  The update was probably written at an index that already exists, which the\n' +
-          '  network ignores. Fetch and retry.',
-      )
-    }
-    return after
+    throw new Error(
+      'feed did not advance: it still resolves to ' + after.ref.slice(0, 12) + '…, ' +
+        'not the manifest just written (' + String(manifestRef).slice(0, 12) + '…).\n' +
+        '  The update was probably written at an index that already exists, which the\n' +
+        '  network ignores. Fetch and retry.',
+    )
   }
 
   /**
