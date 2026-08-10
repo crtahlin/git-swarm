@@ -1,0 +1,32 @@
+name: Report or request
+description: Something broken, something missing, or a question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issues are welcome and are read. There is no promise that any given one gets
+        implemented, or when — this is a proof of concept worked on when there is time.
+        See CONTRIBUTING.md.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what happened, what you expected.
+      placeholder: |
+        $ git clone bzz://…
+        → cloned, but HEAD is an older commit than the one just pushed
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Reference or ENS name, and the gateway or node used
+      description: >
+        The same content behaves differently across gateways, and that difference is
+        often the answer. Leave blank if it does not apply.
+      placeholder: bzz://de4a9c97… via https://bzz.limo (or http://localhost:1633)
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Commit or release of git-swarm, and your Bee version if relevant.

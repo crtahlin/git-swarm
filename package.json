@@ -14,5 +14,17 @@
     "@ethersphere/bee-js": "12.3.1"
   },
   "license": "MIT",
-  "private": true
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/crtahlin/git-swarm.git"
+  },
+  "homepage": "https://github.com/crtahlin/git-swarm",
+  "keywords": [
+    "swarm",
+    "bzz",
+    "git",
+    "git-remote-helper",
+    "decentralized",
+    "ethswarm"
+  ]
 }

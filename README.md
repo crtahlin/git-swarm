@@ -202,6 +202,13 @@ tests/      end-to-end checks — round trip, gateway clone, served-page links
 - A funded postage batch (`swarm-cli stamp list`) — Swarm storage is rented, not permanent
 - `git` 2.x, `curl`, `python3`
 
+## Contributing
+
+Issues are welcome and are read; there is no promise that any given one gets implemented,
+or when. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+MIT licensed — see [LICENSE](LICENSE).
+
 ## Status
 
 Early proof of concept. Nothing here is production ready, and the postage economics
