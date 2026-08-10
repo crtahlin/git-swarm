@@ -35,6 +35,13 @@ Two things that will be asked of any change:
 
 Commit messages: say what changed and why it was wrong before. No AI or tool attribution.
 
+## A warning worth repeating
+
+Anything pushed to Swarm during development is published permanently and cannot be
+removed — including test repositories, and including anything a force-push or a history
+rewrite appears to erase. Use throwaway content, and never a real secret. See the
+warning at the top of the README.
+
 ## Running it
 
 ```sh

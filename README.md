@@ -109,6 +109,39 @@ git fsck            # every object is hash-verified; a bad byte cannot survive t
 > would close that loop and make Swarm-only bootstrapping real: stock `git` clone → `npm
 > link` → native `bzz://` from then on.
 
+## Before you push anything
+
+**What goes onto Swarm cannot be taken back.** Uploads are content-addressed and
+replicated to nodes you do not control. There is no delete, no overwrite, and no
+takedown — not by you, not by anyone.
+
+For a Git tool this has a sharper edge than usual, because the habits that normally
+save you do not work here:
+
+- **`git push --force` does not unpublish anything.** It moves the feed to a new
+  manifest. Every earlier manifest and every earlier packfile is still on Swarm at its
+  own address, still readable by anyone holding the reference.
+- **Rewriting history does not remove it.** `git rebase`, `git commit --amend` and
+  `git filter-repo` change what your repository points at, not what Swarm already
+  stores.
+- **A committed secret is a published secret.** If a key, token or password reaches a
+  push, treat it as compromised and rotate it. Removing it from the working tree
+  changes nothing.
+
+Unencrypted uploads are world-readable by anyone with the reference, and references
+appear in manifests, feeds and links. Assume anything you publish is public and
+permanent.
+
+Two honest qualifications, because "permanent" is often overstated:
+
+- Storage is **rented**. When a postage batch lapses, content stops being retrievable
+  from the network — so data can *disappear*, even though you cannot *delete* it. Those
+  are different things, and neither is under your control once published.
+- Anyone who fetched it already has a copy, whatever happens to the batch.
+
+Private repositories need encryption at upload time, which is not implemented yet.
+Until then, publish nothing you would not put on a public website.
+
 ## Use it
 
 Swarm as an ordinary git remote. Install the helper once:

@@ -163,6 +163,20 @@ async function doPush(state, commands, out) {
   const base = await loadManifest(state, { required: false })
   const baseRef = state.manifestRef
 
+  // Say it once, at the moment it becomes true. Documentation is easy to miss and
+  // this is not reversible: no delete, no overwrite, and no takedown — a later
+  // force-push or history rewrite moves the feed but leaves every earlier pack
+  // readable at its own address.
+  if (!baseRef && !process.env.SWARM_NO_WARN) {
+    process.stderr.write(
+      'swarm: publishing this repository to Swarm. Uploads cannot be deleted,\n' +
+      'swarm: overwritten or taken down — by anyone. A force-push or a rewritten\n' +
+      'swarm: history will not remove what is already published, and an unencrypted\n' +
+      'swarm: upload is readable by anyone holding the reference. Treat any secret\n' +
+      'swarm: that reaches a push as compromised. (SWARM_NO_WARN=1 silences this.)\n',
+    )
+  }
+
   const refUpdates = {}
   const newTips = []
   const results = []
