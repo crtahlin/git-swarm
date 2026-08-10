@@ -69,8 +69,15 @@ try {
 } catch { /* first publication */ }
 
 await bee.makeFeedWriter(topic, key).uploadReference(batch.batchID, upload.reference, { index: next })
-const after = await bee.makeFeedReader(topic, owner).downloadReference()
-if (after.reference.toHex() !== upload.reference.toHex()) {
+// The node's own lookup can lag its own write, so retry before concluding
+// anything: a lagging lookup catches up, a dropped update stays wrong.
+let after = null
+for (let attempt = 0; attempt < 6; attempt++) {
+  after = await bee.makeFeedReader(topic, owner).downloadReference().catch(() => null)
+  if (after?.reference.toHex() === upload.reference.toHex()) break
+  await new Promise((r) => setTimeout(r, 500 * (attempt + 1)))
+}
+if (after?.reference.toHex() !== upload.reference.toHex()) {
   throw new Error('feed did not advance — nothing was published')
 }
 const feed = (await bee.createFeedManifest(batch.batchID, topic, owner)).toHex()
