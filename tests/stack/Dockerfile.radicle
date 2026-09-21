@@ -1,0 +1,69 @@
+# Radicle node, httpd and CLI, for building and restoring archive fixtures.
+#
+# Pinned by version AND checksum. An archive test whose fixture shifts under it
+# reports the wrong thing, and "latest" in a test image is how that happens.
+#
+# Build:
+#   docker build -f tests/stack/Dockerfile.radicle -t git-swarm/radicle .
+#
+# The repo is bind-mounted at run time rather than COPYd, so editing a test
+# script does not mean rebuilding the image.
+
+FROM alpine:3.22
+
+# Pin both trains together. radicle-httpd 0.29.0 builds against radicle 0.25.1,
+# which is what radicle 1.10.x ships; mixing them arbitrarily is not supported.
+ARG RADICLE_VERSION=1.10.3
+ARG RADICLE_HTTPD_VERSION=0.29.0
+
+# Supplied automatically by buildx. Local arm64 and CI amd64 both work.
+ARG TARGETARCH
+
+# python3 is needed by seed-fixture.sh, and by the repo's own shell tests, which
+# parse curl output with it rather than taking a jq dependency.
+RUN apk add --no-cache bash git curl xz ca-certificates python3
+
+RUN set -eux; \
+    case "${TARGETARCH:-amd64}" in \
+      arm64) target=aarch64-unknown-linux-musl ;; \
+      amd64) target=x86_64-unknown-linux-musl ;; \
+      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    base=https://files.radicle.xyz/releases; \
+    cd /tmp; \
+    \
+    main="radicle-${RADICLE_VERSION}-${target}.tar.xz"; \
+    curl -fsSL -O "${base}/${RADICLE_VERSION}/${main}"; \
+    curl -fsSL -O "${base}/${RADICLE_VERSION}/${main}.sha256"; \
+    sha256sum -c "${main}.sha256"; \
+    mkdir -p radicle && tar -xJf "${main}" -C radicle --strip-components=1; \
+    install -m 0755 radicle/bin/* /usr/local/bin/; \
+    \
+    httpd="radicle-httpd-${RADICLE_HTTPD_VERSION}-${target}.tar.xz"; \
+    curl -fsSL -O "${base}/radicle-httpd/${RADICLE_HTTPD_VERSION}/${httpd}"; \
+    curl -fsSL -O "${base}/radicle-httpd/${RADICLE_HTTPD_VERSION}/${httpd}.sha256"; \
+    sha256sum -c "${httpd}.sha256"; \
+    mkdir -p httpd && tar -xJf "${httpd}" -C httpd --strip-components=1; \
+    install -m 0755 httpd/bin/* /usr/local/bin/; \
+    \
+    rm -rf /tmp/*; \
+    rad --version; \
+    radicle-node --version; \
+    radicle-httpd --version
+
+# Short on purpose. radicle-node's control socket lives under RAD_HOME and the
+# path has a ~100 character limit, which fails with an error that never mentions
+# the socket.
+ENV RAD_HOME=/rad
+# Empty passphrase => unencrypted keystore => no ssh-agent, no prompt. Correct
+# for a throwaway test identity and wrong for anything else.
+ENV RAD_PASSPHRASE=""
+
+# SSH_AUTH_SOCK and SSH_AGENT_PID are deliberately NOT set here. A stray agent
+# socket changes how rad auth behaves, so seed-fixture.sh unsets them itself —
+# which also covers running the script outside this image.
+
+RUN mkdir -p /rad /work
+WORKDIR /work
+
+CMD ["bash"]
