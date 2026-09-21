@@ -52,6 +52,16 @@ export class Swarm {
    * so this avoids the whole question and works identically against a local node
    * and a public gateway.
    */
+  /**
+   * Fetch a reference we uploaded as a single bzz file.
+   *
+   * The trailing slash asks the node to resolve the mantaray and serve its index
+   * document. `uploadFile` sets no index document, and this resolves against the node
+   * that wrote the data and against public gateways but NOT against an arbitrary third
+   * node — see #40. Do not "fix" it by switching to `/bytes/<ref>`: that returns the
+   * mantaray node's own bytes, not the file, so it answers 200 with the wrong content
+   * and the failure surfaces much later as an unparseable manifest.
+   */
   async downloadBytes(reference) {
     const base = this.settings.gateway.replace(/\/+$/, '')
     const url = `${base}/bzz/${reference}/`

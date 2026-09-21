@@ -85,23 +85,30 @@ git init -q --bare "$BACK"
 # (it needs /feeds, which a public gateway does not serve) and pack downloads
 # through the gateway. Pointing only one of them at the worker would leave the
 # writer still serving half the read.
+# Retry until the expected commit is actually present, not until fetch exits 0.
+# A feed read can lag the write that produced it (docs/phase-1-results.md, "one
+# property that is not a defect"), and a fetch against a feed still pointing at
+# the previous state succeeds having fetched nothing. Waiting on the exit code
+# alone reads that as success and then fails on a missing ref — which is how
+# this test failed the first time it was run.
 deadline=$(( $(date +%s) + 180 ))
 last=''
 while :; do
-  if last="$(env -u SWARM_BATCH_ID -u SWARM_PRIVATE_KEY \
+  last="$(env -u SWARM_BATCH_ID -u SWARM_PRIVATE_KEY \
        SWARM_API="$WORKER" SWARM_GATEWAY="$WORKER" \
-       git -C "$BACK" fetch "$URL" 'refs/*:refs/*' 2>&1)"; then
-    break
-  fi
+       git -C "$BACK" fetch "$URL" 'refs/*:refs/*' 2>&1)" || true
+
+  got="$(git -C "$BACK" rev-parse --verify --quiet refs/heads/main 2>/dev/null || true)"
+  [ "$got" = "$HEAD_SHA" ] && break
+
   if [ "$(date +%s)" -ge "$deadline" ]; then
     echo "$last" >&2
-    fail "the writing node reported success, but $WORKER could not serve the repository after 180s"
+    [ -n "$got" ] \
+      && fail "$WORKER served $got, expected $HEAD_SHA — the feed there is behind" \
+      || fail "the writing node reported success, but $WORKER could not serve the repository after 180s"
   fi
   sleep 5
 done
-
-got="$(git -C "$BACK" rev-parse refs/heads/main 2>/dev/null || echo '')"
-[ "$got" = "$HEAD_SHA" ] || fail "read back $got, expected $HEAD_SHA"
 echo "==> a node that never saw the push served it back   ok"
 
 git -C "$BACK" fsck --no-progress --no-dangling >/dev/null 2>&1 \
