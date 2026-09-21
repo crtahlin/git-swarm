@@ -8,13 +8,22 @@
 # Isolated by construction: its own RAD_HOME, no node started, no announce, and
 # the repo is private so nothing reaches the network even if a node appears.
 #
-# Usage: seed-fixture.sh <rad-home> [peer-alias]
+# Usage: seed-fixture.sh <rad-home> [peer-alias] [visibility]
+# visibility: private (default) or public.
+#
+# Private by design: nothing can replicate out of it even if a node is started
+# against this home by mistake. Pass "public" when the test needs a node to
+# inventory and serve the repository — a node will not inventory a private repo
+# for an identity that is not on its allow list, which is correct and is why the
+# option exists.
+#
 # Prints the RID on stdout. Everything else goes to stderr.
 
 set -euo pipefail
 
 HOME_DIR="${1:-}"
 ALIAS="${2:-fixturebot}"
+VISIBILITY="${3:-private}"
 
 [ -n "$HOME_DIR" ] || { echo "usage: $0 <rad-home> [peer-alias]" >&2; exit 64; }
 
@@ -76,12 +85,18 @@ if [ ! -d .git ]; then
       commit -qm "initial commit"
 fi
 
+case "$VISIBILITY" in
+  private) VIS_FLAG=--private ;;
+  public)  VIS_FLAG=--public ;;
+  *) echo "seed-fixture: visibility must be private or public" >&2; exit 64 ;;
+esac
+
 if ! rad . >/dev/null 2>&1; then
   rad init \
     --name fixture \
     --description "git-swarm archive fixture" \
     --default-branch main \
-    --private \
+    "$VIS_FLAG" \
     --no-confirm >&2
 fi
 
