@@ -278,6 +278,19 @@ A reader therefore does not have to trust the Bee node or gateway that served th
 1. Read the current feed state; remember the manifest reference it points at.
 2. For each ref being pushed, reject a non-fast-forward update unless force was
    requested.
+
+   That rule protects a working repository. An **archive** of a repository it does not
+   control needs the opposite, and asks for it with a forced refspec:
+
+   ```sh
+   git push bzz::<owner>/<repo> '+refs/*:refs/*'
+   ```
+
+   A mirrored source moves refs backwards as a matter of course. A Radicle peer
+   rewriting its own branch is an ordinary `git push -f`, replicated to everyone
+   seeding the repository, and an archive that refuses to follow it stops tracking the
+   thing it exists to preserve. No separate mode is needed: the `+` already means
+   this, and a writer MUST honour it.
 3. Build one packfile containing the objects reachable from the new tips but not from any
    ref already in the manifest.
 4. Upload the pack.

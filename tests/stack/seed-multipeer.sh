@@ -10,14 +10,24 @@
 # structurally plausible whose sigrefs do not verify — worse than no fixture,
 # because it would pass. So this runs two real nodes and lets Radicle replicate.
 #
-# Usage: seed-multipeer.sh <base-dir>
+# Usage:
+#   seed-multipeer.sh <base-dir>            build it; print the RID
+#   seed-multipeer.sh <base-dir> rewrite    peer B rewrites history and force-pushes,
+#                                           then A replicates the rewrite
+#
+# Two phases rather than one call, so a caller can archive the repository between
+# them and see what the archive does with a ref that moved backwards. Nodes are
+# stopped when each phase returns; `rewrite` restarts and reconnects them.
+#
 # Prints the RID on stdout; everything else goes to stderr. The two RAD_HOMEs
 # are <base-dir>/a and <base-dir>/b.
 
 set -euo pipefail
 
 BASE="${1:-}"
-[ -n "$BASE" ] || { echo "usage: $0 <base-dir>" >&2; exit 64; }
+PHASE="${2:-init}"
+[ -n "$BASE" ] || { echo "usage: $0 <base-dir> [init|rewrite]" >&2; exit 64; }
+case "$PHASE" in init|rewrite) ;; *) echo "usage: $0 <base-dir> [init|rewrite]" >&2; exit 64 ;; esac
 
 for bin in rad radicle-node git; do
   command -v "$bin" >/dev/null 2>&1 || { echo "seed-multipeer: $bin not on PATH" >&2; exit 77; }
@@ -38,6 +48,7 @@ WORK_A="$BASE/wa"
 WORK_B="$BASE/wb"
 LOG="$BASE/logs"
 mkdir -p "$A" "$B" "$WORK_A" "$LOG"
+CHECKOUT="$BASE/multipeer"
 
 export RAD_PASSPHRASE=''
 unset SSH_AUTH_SOCK || true
@@ -90,6 +101,55 @@ start_node() {
   done
   say "node $name up"
 }
+
+if [ "$PHASE" = rewrite ]; then
+  # Both identities and the repository already exist. Bring the nodes back and
+  # let B rewrite what it published.
+  [ -d "$A/storage" ] || { say "no fixture at $BASE — run the init phase first"; exit 64; }
+  A_NID="$(RAD_HOME="$A" rad self --nid 2>/dev/null)"
+  B_NID="$(RAD_HOME="$B" rad self --nid 2>/dev/null)"
+  RID="$(ls "$A/storage" | head -1)"
+  [ -n "$RID" ] || { say "no repository in $A/storage"; exit 1; }
+
+  start_node "$A" alice "0.0.0.0:8776"
+  start_node "$B" bob
+  RAD_HOME="$B" rad node connect "$A_NID@127.0.0.1:8776" --timeout 30sec >&2 \
+    || { say "reconnect failed"; tail -20 "$LOG/bob.log" >&2; exit 1; }
+
+  before="$(git -C "$A/storage/$RID" rev-parse "refs/namespaces/$B_NID/refs/heads/main")"
+
+  # Rewrite, do not extend. --amend replaces the commit B already published, so
+  # its branch moves to something the old tip is not an ancestor of. This is the
+  # shape an archive has to survive: a ref that went backwards at the source.
+  cd "$CHECKOUT"
+  printf 'rewritten by bob\n' >> README.md
+  git add -A
+  git -c user.email=bob@example.invalid -c user.name=bob commit -q --amend -m "bob: rewritten"
+  RAD_HOME="$B" git push -f rad >&2 || { say "force push failed"; exit 1; }
+
+  say "waiting for A to replicate the rewrite"
+  deadline=$(( $(date +%s) + 90 ))
+  while :; do
+    now="$(git -C "$A/storage/$RID" rev-parse "refs/namespaces/$B_NID/refs/heads/main" 2>/dev/null || echo '')"
+    [ -n "$now" ] && [ "$now" != "$before" ] && break
+    [ "$(date +%s)" -lt "$deadline" ] || {
+      say "A never replicated the rewrite (still $before)"
+      tail -25 "$LOG/alice.log" >&2
+      exit 1
+    }
+    sleep 3
+  done
+  after="$(git -C "$A/storage/$RID" rev-parse "refs/namespaces/$B_NID/refs/heads/main")"
+
+  if git -C "$A/storage/$RID" merge-base --is-ancestor "$before" "$after" 2>/dev/null; then
+    say "NOTE: $before -> $after is still a fast-forward"
+  else
+    say "B's branch moved backwards: $before -> $after (not a fast-forward)"
+  fi
+
+  echo "$RID"
+  exit 0
+fi
 
 # --- peer A: creates the repository -------------------------------------------
 [ -f "$A/keys/radicle" ] || RAD_HOME="$A" rad auth --alias alice >/dev/null 2>&1
