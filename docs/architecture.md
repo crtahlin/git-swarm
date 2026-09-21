@@ -1,7 +1,9 @@
 # Git(Hub) on Swarm — architecture options and plan
 
-Date: 2026-08-06
-Status: research + proposal, no code written yet
+Date: 2026-08-06 · Option C updated 2026-09-21
+Status: Phases 0 and 1 shipped; Phase 2 partly shipped. This document is the
+standing options analysis and risk register, not a status page — see the README
+phase table and the issue tracker for where the work actually stands.
 Author: Crt Ahlin (with agent assistance)
 
 ---
@@ -102,18 +104,78 @@ manifest_N = {
 
 ### Option C — Radicle + Swarm (archival seeding)
 Radicle Heartwood is peer-to-peer Git with identity, issues and patches as Git-native
-CRDTs, plus a working desktop/web client. Its documented weak spot is **data
-availability**: repos live only as long as some node chooses to seed them, and there is
-no economic layer paying anyone to keep seeding. That is precisely what Swarm sells.
+CRDTs, plus a working desktop and web client. Its documented weak spot is **data
+availability**: a repo lives only as long as some node chooses to seed it, and nothing
+pays anyone to keep seeding. That is what Swarm sells.
 
-Build a `radicle-swarm-seed`: a Radicle node that mirrors every repo it seeds into
-Swarm (via Option B's format) and can restore from Swarm when no peer has the data.
+**Updated 2026-09-21.** Most of this option now exists, built by
+[solardev-xyz](https://github.com/solardev-xyz) rather than by us. They proposed the
+integration in [#31](https://github.com/crtahlin/git-swarm/issues/31).
 
-- Effort: **4–8 weeks**, and it needs Radicle-side engagement to be more than a fork.
-- Value: highest ceiling. You inherit identity, issues, patches, and a client, and
-  contribute the one thing Radicle lacks. Natural grant/partnership story for both
-  foundations.
-- Risk: dependency on another project's roadmap and goodwill.
+Swarm plays three separate roles in that stack. Two are already built:
+
+| Role | What it means | Built by | Status |
+|---|---|---|---|
+| App delivery | The forge UI is served from `bzz://` | canopy | done |
+| Discovery | A signed feed lists what is on the network | radicle-index-service | done |
+| Repo persistence | The Git objects survive when no peer seeds them | nobody | **open — our piece** |
+
+The parts that exist:
+
+- [canopy](https://github.com/solardev-xyz/canopy) — a GitHub-style forge for Radicle,
+  served from Swarm. Reads go to the user's own `radicle-httpd`; actions go through a
+  `window.radicle` provider.
+- [radicle-index-service](https://github.com/solardev-xyz/radicle-index-service) —
+  crawls the Radicle gossip network and publishes a signed `radicle-index/v1` index to a
+  Swarm feed. Its trust rule: the index decides what you see, your node decides what is
+  true.
+- [libradicle](https://github.com/solardev-xyz/libradicle) — an embeddable Radicle node
+  in Rust with a napi binding.
+- [Freedom Browser](https://github.com/solardev-xyz/freedom-browser) — a browser that
+  embeds both a Bee node and a Radicle node, so `bzz://` and `rad:` resolve locally with
+  no gateway. That also removes the gateway limitation in spec §4.1: `/feeds` works, so
+  the `bzz::<owner>/<repo>` endpoint form resolves client-side.
+
+So Swarm is already a publishing and discovery backend for Radicle. It is not yet a
+storage backend. Availability is still "some node chose to seed this", and the index
+will keep listing repos whose data is gone.
+
+The archival mirror is what is missing, and `git-remote-bzz` is the only missing part.
+It has two halves:
+
+1. **Archive.** The index service pushes each repo it crawls to Swarm in the Option B
+   format, and records `"swarm": "bzz://<feed-manifest-ref>"` in the repo's index entry.
+2. **Restore.** A client clones from that reference when no peer is seeding. Nobody has
+   built this half. Without it the archive is never read and proves nothing.
+
+Four constraints to hold:
+
+- **This is a mirror, not a storage driver.** radicle-node will not learn to speak
+  Swarm; its storage layer is not pluggable. That is the same finding as Option D below.
+  Say "Swarm archives Radicle repos", not "Swarm backs Radicle".
+- **Archive the bare storage repo, not one namespace's view.** Radicle
+  self-certification lives in `refs/namespaces/<nid>/refs/rad/sigrefs` for every peer,
+  plus `refs/rad/id` and `refs/rad/root`. An archive holding only `refs/heads` cannot be
+  verified after restore. swarm-git/1 does not filter refs, so the format already allows
+  the full set — but the helper enforces fast-forward on every ref, and Radicle
+  force-writes sigrefs as a normal operation (`force_save` in heartwood
+  `crates/radicle/src/storage/refs.rs`). An archival mirror needs mirror semantics:
+  record what the source says, rather than defending a branch from its own history.
+- **Two batches, split by recovery path.** The index service needs a mutable batch,
+  because its heal loop re-stamps the whole feed chain. A mutable batch evicts old
+  stamps under that churn: they measured 292 of 2428 chain chunks lost on 2026-08-19.
+  That is survivable for an index, which rebuilds from gossip. It is not survivable for
+  an archive, which rebuilds from nothing. Keep packs on an immutable batch, per §6.1.
+- **No single-vendor dependency.** Browser, forge, index and Radicle binding are one
+  vendor today. The archive must stay readable with stock `git` plus the helper, with no
+  Freedom Browser and no canopy. Test that; do not assume it.
+
+- Effort: **2–4 weeks**, down from 4–8. The node, the index and the client already
+  exist. We supply the push path, the restore path and the format guarantees.
+- Value: unchanged, and still the highest ceiling. We inherit identity, issues, patches
+  and a client, and supply the one thing Radicle lacks.
+- Risk: dependency on another project's roadmap and goodwill, now concentrated in a
+  single vendor. The neutrality constraint above is the mitigation.
 
 ### Option D — Forgejo/Gitea with Swarm underneath
 Checked and **partially blocked**: Forgejo/Gitea can put LFS, attachments, avatars,
@@ -161,10 +223,13 @@ someone whose licence lets you use it.
   (b) Adopt Radicle COBs or git-bug for issues/patches instead of inventing anything.
   (c) ACT-encrypted private repos.
 
-- **Phase 3 (opportunistic): Radicle partnership and Forgejo integration.**
-  Approach Radicle with a working `git-remote-swarm` in hand — the conversation is
-  much easier when the storage layer already exists. In parallel, the Forgejo
-  post-receive mirror gives a self-hosting story for Datafund's own repos.
+- **Phase 3: Radicle archival backend and Forgejo integration.**
+  No longer opportunistic. The Radicle side came to us in
+  [#31](https://github.com/crtahlin/git-swarm/issues/31) once Phase 1 shipped, which is
+  what the sequencing above was for. The client, the index and the embeddable node
+  already exist; we supply the archive path, the restore path and the format
+  guarantees (§4 Option C). In parallel, the Forgejo post-receive mirror gives a
+  self-hosting story for Datafund's own repos.
 
 The thread through all four phases: **Swarm supplies durable, incentivised,
 censorship-resistant storage and authenticated mutable pointers. Everything else is
@@ -241,6 +306,10 @@ triggered by a GSOC/PSS push notification.
 - [git-remote-gitopia](https://github.com/gitopia/git-remote-gitopia-mvp) — Cosmos/Arweave-backed equivalent
 - [Radicle Heartwood protocol overview](https://hackmd.io/@radicle/rJ2UH54P6)
 - [Radicle Collaborative Objects](https://deepwiki.com/radicle-dev/heartwood/6.1-collaborative-objects-(cobs))
+- [canopy](https://github.com/solardev-xyz/canopy) — Radicle forge served from Swarm
+- [radicle-index-service](https://github.com/solardev-xyz/radicle-index-service) — signed Radicle index on a Swarm feed
+- [libradicle](https://github.com/solardev-xyz/libradicle) — embeddable Radicle node (Rust + napi)
+- [Freedom Browser](https://github.com/solardev-xyz/freedom-browser) — browser embedding both a Bee node and a Radicle node
 - [Radicle FAQ — seed nodes and availability](https://radicle.dev/faq)
 - [Forgejo storage settings](https://forgejo.org/docs/latest/admin/setup/storage/) and
   [minio-for-all-repos request](https://codeberg.org/forgejo/forgejo/issues/2664) — repos cannot live in object storage today
