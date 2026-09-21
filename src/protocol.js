@@ -219,9 +219,20 @@ async function doPush(state, commands, out) {
     }
 
     const existing = base.refs[dst]
-    if (existing && !forced && !git.isAncestor(existing, sha)) {
-      results.push(`error ${dst} non-fast-forward`)
-      continue
+    if (existing && !forced) {
+      let fastForward
+      try {
+        fastForward = git.isAncestor(existing, sha)
+      } catch (err) {
+        // Could not determine it. Say that, rather than calling it a
+        // non-fast-forward and implying a history the reader has to go and check.
+        results.push(`error ${dst} ${firstLine(err.message)}`)
+        continue
+      }
+      if (!fastForward) {
+        results.push(`error ${dst} non-fast-forward`)
+        continue
+      }
     }
 
     refUpdates[dst] = sha

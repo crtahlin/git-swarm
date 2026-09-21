@@ -122,7 +122,7 @@ echo "==> delegates intact                              ok"
 
 # 3. The self-certification survived. Without this the repo is browsable and
 #    unverifiable, which is the failure this whole archive exists to prevent.
-nid="$(sed -n 's|.*refs/namespaces/\([^/]*\)/.*|\1|p' "$TMP/after.refs" | head -1)"
+nid="$(sed -n 's|.*refs/namespaces/\([^/]*\)/.*|\1|p' "$TMP/after.refs" | sed -n '1p')"
 [ -n "$nid" ] || fail "no namespace in the restored repository"
 sig="refs/namespaces/$nid/refs/rad/sigrefs"
 [ "$(git -C "$DEST" cat-file -t "$(git -C "$DEST" rev-parse "$sig")")" = commit ] \

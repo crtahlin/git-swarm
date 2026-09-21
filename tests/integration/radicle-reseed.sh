@@ -136,7 +136,7 @@ echo "==> the node announces the restored repository    ok"
 RAD_HOME="$RESTORED" rad inspect --identity "rad:$RID" >/dev/null 2>&1 \
   || fail "node inventories it but rad cannot read its identity"
 nid="$(git -C "$DEST" for-each-ref --format='%(refname)' \
-  | sed -n 's|refs/namespaces/\([^/]*\)/.*|\1|p' | head -1)"
+  | sed -n 's|refs/namespaces/\([^/]*\)/.*|\1|p' | sed -n '1p')"
 [ -n "$nid" ] || fail "no namespace in the restored repository"
 git -C "$DEST" show-ref --verify --quiet "refs/namespaces/$nid/refs/rad/sigrefs" \
   || fail "restored repository lost its self-certification"

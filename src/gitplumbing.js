@@ -26,13 +26,24 @@ export function hasObject(sha) {
   }
 }
 
-/** True when `ancestor` is reachable from `descendant` — i.e. the update fast-forwards. */
+/**
+ * True when `ancestor` is reachable from `descendant` — i.e. the update fast-forwards.
+ *
+ * Throws when the question cannot be answered at all. `git merge-base --is-ancestor`
+ * exits 1 for "no" and 128 for a failure — a ref pointing at a non-commit, a missing
+ * object, a broken repository. Treating those alike, as this did, reports a push as
+ * "non-fast-forward" when the truth is that nothing was compared, and sends the reader
+ * looking for a history problem they do not have.
+ */
 export function isAncestor(ancestor, descendant) {
   try {
-    run(['merge-base', '--is-ancestor', ancestor, descendant], { stdio: 'ignore' })
+    // stderr piped, not ignored: it carries the reason when git cannot answer.
+    run(['merge-base', '--is-ancestor', ancestor, descendant], { stdio: ['ignore', 'ignore', 'pipe'] })
     return true
-  } catch {
-    return false
+  } catch (err) {
+    if (err.status === 1) return false
+    const detail = (err.stderr || '').toString().trim().split('\n')[0] || `exit ${err.status}`
+    throw new Error(`could not compare ${ancestor.slice(0, 8)}… with ${descendant.slice(0, 8)}…: ${detail}`)
   }
 }
 

@@ -91,7 +91,7 @@ git -C "$BACK" fsck --no-progress --no-dangling >/dev/null 2>&1 \
 echo "==> git fsck clean on the restored copy            ok"
 
 # 3. The refs that make a Radicle repo verifiable are present and intact.
-nid="$(sed -n 's|.*refs/namespaces/\([^/]*\)/.*|\1|p' "$after" | head -1)"
+nid="$(sed -n 's|.*refs/namespaces/\([^/]*\)/.*|\1|p' "$after" | sed -n '1p')"
 [ -n "$nid" ] || fail "no namespace in the restored copy"
 for ref in rad/sigrefs rad/id rad/root; do
   grep -q " refs/namespaces/$nid/refs/$ref$" "$after" \

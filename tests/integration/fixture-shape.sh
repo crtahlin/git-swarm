@@ -36,7 +36,7 @@ REPO="$RAD_HOME_ARG/storage/$RID"
 [ -d "$REPO" ] || fail "no storage repo at $REPO"
 
 refs="$(git -C "$REPO" for-each-ref --format='%(objecttype) %(refname)')"
-nid="$(printf '%s\n' "$refs" | sed -n 's|.*refs/namespaces/\([^/]*\)/.*|\1|p' | head -1)"
+nid="$(printf '%s\n' "$refs" | sed -n 's|.*refs/namespaces/\([^/]*\)/.*|\1|p' | sed -n '1p')"
 [ -n "$nid" ] || fail "no refs/namespaces/<nid>/ found — is this a storage repo?"
 
 echo "==> node id $nid"

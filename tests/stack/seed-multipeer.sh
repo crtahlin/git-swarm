@@ -108,7 +108,7 @@ if [ "$PHASE" = rewrite ]; then
   [ -d "$A/storage" ] || { say "no fixture at $BASE — run the init phase first"; exit 64; }
   A_NID="$(RAD_HOME="$A" rad self --nid 2>/dev/null)"
   B_NID="$(RAD_HOME="$B" rad self --nid 2>/dev/null)"
-  RID="$(ls "$A/storage" | head -1)"
+  RID="$(ls "$A/storage" | sed -n '1p')"
   [ -n "$RID" ] || { say "no repository in $A/storage"; exit 1; }
 
   start_node "$A" alice "0.0.0.0:8776"
