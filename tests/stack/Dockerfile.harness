@@ -1,0 +1,34 @@
+# The git-swarm helper, on top of the pinned Radicle image.
+#
+# One image rather than two containers: the archive round trip needs the radicle
+# toolchain and the helper operating on the same files, and sharing a RAD_HOME
+# across containers buys nothing but ordering bugs.
+#
+# Build (needs git-swarm/radicle first — tests/stack/stack.sh does both):
+#   docker build -f tests/stack/Dockerfile.harness -t git-swarm/harness .
+
+ARG BASE=git-swarm/radicle
+FROM ${BASE}
+
+USER root
+RUN apk add --no-cache nodejs npm
+
+# Product code is baked; test scripts are bind-mounted at /work. So editing a
+# test costs nothing, and editing the helper costs one cached rebuild — which is
+# what CI does anyway, and it keeps the tests honest about which helper they ran.
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+COPY bin/ ./bin/
+COPY src/ ./src/
+RUN npm link && git-remote-bzz --help >/dev/null 2>&1 || true
+
+# Fail the build rather than the test run if the helper is not on PATH: a
+# missing helper makes every test SKIP, which reads as success.
+RUN command -v git-remote-bzz >/dev/null || (echo "git-remote-bzz not on PATH" >&2; exit 1)
+
+RUN chown -R radicle:radicle /app
+USER radicle
+WORKDIR /work
+
+CMD ["bash"]
