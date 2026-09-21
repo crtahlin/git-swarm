@@ -14,12 +14,7 @@
 
 set -euo pipefail
 
-BEE_FACTORY="${BEE_FACTORY_PKG:-@ethersphere/bee-factory@1.1.2}"
-BEE_TAG="${BEE_FACTORY_TAG:-v2.8.2}"
-QUEEN_API="http://localhost:1633"
-
-# bee-factory hardcodes these in its config; there is no remap option.
-PORTS="1633 1634 1635 1636 1637 1638 1639 1640 1641 1642 8545"
+FACTORY="$(cd "$(dirname "$0")" && pwd)/bee-factory.sh"
 
 say()  { echo "cluster-up: $*" >&2; }
 die()  { echo "cluster-up: $*" >&2; exit 1; }
@@ -27,11 +22,10 @@ skip() { echo "SKIP: $*" >&2; exit 77; }
 
 command -v docker >/dev/null 2>&1 || skip "docker not installed"
 docker info >/dev/null 2>&1 || skip "docker is installed but not running"
-command -v npx >/dev/null 2>&1 || skip "npx not available (node >= 20 needed)"
 
 if [ "${1:-}" = "--down" ]; then
   say "stopping the cluster"
-  npx -y "$BEE_FACTORY" stop >&2
+  "$FACTORY" stop
   exit 0
 fi
 
@@ -59,50 +53,12 @@ fi
 # Check first and say which process holds it, because "address already in use"
 # on port 1634 usually means the developer's own Bee node — which must not be
 # stopped for us.
-port_busy() {
-  # No SO_REUSEADDR, and both addresses: docker publishes on 0.0.0.0, so a
-  # loopback-only listener still conflicts. Setting SO_REUSEADDR here made the
-  # probe bind straight past a node listening on 127.0.0.1.
-  python3 -c 'import socket, sys
-port = int(sys.argv[1])
-for host in ("0.0.0.0", "127.0.0.1"):
-    s = socket.socket()
-    try:
-        s.bind((host, port))
-    except OSError:
-        sys.exit(0)      # busy
-    finally:
-        s.close()
-sys.exit(1)              # free' "$1"
-}
-
-busy=''
-for p in $PORTS; do
-  if port_busy "$p"; then
-    busy="$busy $p"
-  fi
-done
-
-if [ -n "$busy" ]; then
-  say "ports in use:$busy"
-  if command -v lsof >/dev/null 2>&1; then
-    for p in $busy; do
-      holder="$(lsof -nP -iTCP:"$p" -sTCP:LISTEN 2>/dev/null | awk 'NR==2 {print $1" (pid "$2")"}')"
-      [ -n "$holder" ] && say "  $p held by $holder"
-    done
-  fi
-  say ""
-  say "bee-factory hardcodes these ports and cannot be remapped."
-  say "A Bee node on 1633/1634 is the usual cause - probably your own."
-  say ""
-  say "Either stop it for the duration of the run, or run these tests in CI"
-  say "where the ports are free. Do not stop a node you rely on."
-  exit 78
-fi
-
 # --- start ---------------------------------------------------------------------
-say "starting bee-factory (bee $BEE_TAG, 5 nodes + anvil)"
-npx -y "$BEE_FACTORY" start --tag "$BEE_TAG" >&2
+say "starting bee-factory (5 nodes + anvil, ports chosen to avoid collisions)"
+"$FACTORY" start
+QUEEN_API="$("$FACTORY" queen-api 2>/dev/null)"
+[ -n "$QUEEN_API" ] || die "could not determine the queen API address"
+say "queen API at $QUEEN_API"
 
 say "waiting for the queen to report peers"
 deadline=$(( $(date +%s) + 120 ))
@@ -121,13 +77,22 @@ say "queen has $connected peers"
 # immutable flag to true when the header is absent (pkg/api/postage.go), but set
 # it explicitly: the default is not something to inherit silently for the one
 # property that decides whether the archive survives.
-say "buying an immutable batch"
-batch="$(curl -fsS -X POST -H 'immutable: true' "$QUEEN_API/stamps/100000000/20" \
+# Price the batch from the chain rather than hardcoding an amount. Bee rejects
+# anything below currentPrice * minimumValidityBlocks with "insufficient amount
+# for 24h minimum validity", and both numbers move.
+amount="$(curl -fsS "$QUEEN_API/chainstate" \
+  | python3 -c 'import json,sys; d=json.load(sys.stdin); print(int(d["currentPrice"]) * int(d["minimumValidityBlocks"]) * 2)')"
+[ -n "$amount" ] || die "could not read chainstate to price the batch"
+
+say "buying an immutable batch (amount $amount, depth 20)"
+batch="$(curl -fsS -X POST -H 'immutable: true' "$QUEEN_API/stamps/$amount/20" \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)["batchID"])')"
 [ -n "$batch" ] || die "no batchID returned"
 
 deadline=$(( $(date +%s) + 120 ))
 while :; do
+  # GET /stamps/<id> returns 400 until the node has seen the batch on chain.
+  # That is "not yet", not "not usable", so a failed request keeps us waiting.
   usable="$(curl -fsS "$QUEEN_API/stamps/$batch" 2>/dev/null \
     | python3 -c 'import json,sys; print(json.load(sys.stdin).get("usable",False))' 2>/dev/null || echo False)"
   [ "$usable" = "True" ] && break

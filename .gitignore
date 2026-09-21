@@ -12,3 +12,6 @@ out/
 tmp/
 *.pack.tmp
 viewer/dist/
+
+# bee-factory is installed and port-patched here by tests/stack/bee-factory.sh
+tests/stack/.bee-factory/
