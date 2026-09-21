@@ -198,7 +198,8 @@ When that one shared chunk is not retrievable, `/bzz/<ref>/` returns 404 while
 `/chunks/<ref>`, `/bytes/<ref>` and `/bzz/<ref>/<name>` all return 200. Bee cannot
 distinguish it from a missing index document: both produce the same 404 with the same
 message. Observed intermittently on nodes that did not write the data, and never on the
-writer, which holds the chunk locally.
+writer, which holds the chunk locally. Filed upstream as
+[ethersphere/bee#5625](https://github.com/ethersphere/bee/issues/5625).
 
 Requesting the named entry never loads that node. It costs nothing and removes a
 dependency on a chunk this format does not control.
