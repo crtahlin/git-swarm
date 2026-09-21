@@ -132,7 +132,7 @@ A JSON document, uploaded as a single bzz file with content type `application/js
 | `format` | MUST be `swarm-git/1`. A reader MUST refuse anything else. |
 | `repo` | The repository name the topic was derived from. Informational; readers MUST NOT rely on it for addressing. |
 | `head` | The ref `HEAD` points at. MUST be a key of `refs`. |
-| `refs` | Full ref name → 40-hex object id. Includes branches and tags. |
+| `refs` | Full ref name → 40-hex object id. Any ref name: branches, tags, and anything else a writer pushes. See §3.2.1. |
 | `packs` | **Cumulative** — every pack needed to reconstruct `refs`, oldest first. |
 | `packs[].ref` | bzz reference of the packfile. |
 | `packs[].size` | Byte length, so a client can budget before downloading. |
@@ -140,6 +140,28 @@ A JSON document, uploaded as a single bzz file with content type `application/js
 | `packs[].tips` | Object ids this pack makes reachable. |
 | `packs[].base` | Object ids this pack assumes already exist. Empty for the first pack. |
 | `parent` | bzz reference of the manifest this push was based on, or `null` for the first. |
+
+#### 3.2.1 The ref map is not restricted to branches and tags
+
+`refs` is an unconstrained map from full ref name to object id. A reader MUST NOT assume
+the keys are limited to `refs/heads/*` and `refs/tags/*`, and a writer MAY store any ref
+the local repository holds.
+
+This matters for mirroring a repository whose meaning lives outside those two namespaces.
+A Radicle storage repository is the worked example: its branches and its per-peer
+self-certification live under `refs/namespaces/<nid>/`, with `refs/rad/sigrefs`,
+`refs/rad/id` and `refs/rad/root` alongside. An archive holding only `refs/heads/*`
+restores a repository that can be read and cannot be verified.
+
+Verified against a real Radicle storage repository built by `rad 1.10.3`: pushing
+`refs/*:refs/*` and fetching it back reproduced all seven refs with identical object ids
+and types, `git fsck` clean, and `refs/rad/sigrefs` still resolving to a commit over its
+`refs` and `signature` blobs. No format change was needed
+(`tests/integration/radicle-archive.sh`).
+
+`head` MAY be `null` when no ref is a plausible default. A reader that needs a default
+branch and finds `head` null MUST treat the repository as having no default rather than
+guessing one.
 
 `packs` is cumulative rather than incremental so that a clone costs one feed lookup, one
 manifest read, and then the packs — no chain walking. `parent` preserves history and
