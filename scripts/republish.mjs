@@ -65,7 +65,7 @@ try {
   const size = statSync(packPath).size
   console.log(`pack       ${size} bytes (whole history, one pack)`)
 
-  const ref = await swarm.uploadFile(readFileSync(packPath), 'pack', 'application/x-git-packfile')
+  const ref = await swarm.uploadFile(readFileSync(packPath), m.ENTRY_PACK, 'application/x-git-packfile')
   console.log(`uploaded   ${ref}`)
 
   const manifest = m.advance(m.emptyManifest(target.repo), {
@@ -76,7 +76,7 @@ try {
   manifest.head = head in refs ? head : manifest.head
 
   const manifestRef = await swarm.uploadFile(
-    Buffer.from(JSON.stringify(manifest, null, 2)), 'manifest.json', 'application/json',
+    Buffer.from(JSON.stringify(manifest, null, 2)), m.ENTRY_MANIFEST, 'application/json',
   )
   await swarm.updateFeed(topic, target.owner, manifestRef, before.nextIndex)
   const feedManifest = await swarm.ensureFeedManifest(topic, target.owner)

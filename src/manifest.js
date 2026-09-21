@@ -2,6 +2,17 @@
 
 export const FORMAT = 'swarm-git/1'
 
+/**
+ * The names each object is stored under inside its bzz manifest.
+ *
+ * Shared because a reader must ask for the entry by name — see downloadBytes in
+ * swarm.js — so writer and reader drifting apart would break retrieval on some
+ * nodes and not others. They were duplicated in protocol.js and republish.mjs
+ * before anything read them.
+ */
+export const ENTRY_PACK = 'pack'
+export const ENTRY_MANIFEST = 'manifest.json'
+
 export function emptyManifest(repo) {
   return { format: FORMAT, repo, head: null, refs: {}, packs: [], parent: null }
 }

@@ -26,6 +26,8 @@ a suite that passed, and that is how a broken harness survives.
 | `radicle-archive.sh` | yes | A bare Radicle storage repo pushed with `refs/*:refs/*` and fetched back with every ref byte-identical, `fsck` clean, sigrefs still verifiable |
 | `radicle-restore.sh` | yes | A **fresh** install with a **different** identity restores from `bzz://` and `rad inspect` recovers a byte-identical identity document — with no batch and no key in the environment |
 | `batch-mutability.sh` | yes | A mutable batch is refused with the fix named in the message, the override works, an immutable batch is accepted |
+| `radicle-archive-multipeer.sh` | yes | The same round trip for a repository holding two peers' namespaces, built by two real radicle-nodes replicating |
+| `publication-durability.sh` | yes | A repository pushed through one node is readable from a **different** node — the only test that distinguishes "published" from "stored locally" |
 
 `fixture-shape.sh` exists because two issues were filed from assumptions about the Radicle
 ref layout and both were wrong. Reading heartwood's source was not enough. It is the

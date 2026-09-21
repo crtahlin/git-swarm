@@ -92,8 +92,9 @@ Three kinds, all written with the repository's postage batch.
 ### 3.1 Packfiles
 
 Standard Git packfiles, exactly as `git pack-objects` emits them. Each is uploaded as a
-**single bzz file** and retrieved at `/bzz/<ref>`, which is what keeps them readable
-through public gateways.
+**single bzz file** under the entry name **`pack`**, and retrieved at
+`/bzz/<ref>/pack` — see §3.4, which is normative about the name and about why the
+entry name rather than the bare reference.
 
 Packs are the unit of transfer on purpose. A repository stored as individual loose
 objects would be one Swarm retrieval per object; Phase 0 measured a 22 MB repository as a
@@ -103,7 +104,9 @@ Packs are append-only. A push adds a pack; it never rewrites one.
 
 ### 3.2 Manifest
 
-A JSON document, uploaded as a single bzz file with content type `application/json`.
+A JSON document, uploaded as a single bzz file under the entry name
+**`manifest.json`**, with content type `application/json`. Retrieved at
+`/bzz/<ref>/manifest.json` — see §3.4.
 
 ```json
 {
@@ -177,6 +180,35 @@ manifest.
 The feed is what makes refs authentic: a feed update is a single-owner chunk signed by
 the owner's key, so only the key holder can move a ref, and any reader can verify that
 without trusting the node that served it.
+
+### 3.4 Retrieving an object
+
+A reader MUST request an object by its entry name — `/bzz/<ref>/pack` or
+`/bzz/<ref>/manifest.json` — and MUST NOT rely on the bare collection root
+`/bzz/<ref>/`.
+
+The reason is specific and measured. A single-file bzz upload produces a manifest with
+two entries: the file under its name, and `/` carrying the index document metadata Bee
+derives from that name. Serving the bare root is the only retrieval path that has to
+load the `/` node. That node holds no content — its metadata lives in the parent's fork
+record — and for an unencrypted single-file upload it serialises to the same 96 bytes
+every time, so **every such upload on the network shares one chunk address**.
+
+When that one shared chunk is not retrievable, `/bzz/<ref>/` returns 404 while
+`/chunks/<ref>`, `/bytes/<ref>` and `/bzz/<ref>/<name>` all return 200. Bee cannot
+distinguish it from a missing index document: both produce the same 404 with the same
+message. Observed intermittently on nodes that did not write the data, and never on the
+writer, which holds the chunk locally.
+
+Requesting the named entry never loads that node. It costs nothing and removes a
+dependency on a chunk this format does not control.
+
+`/bytes/<ref>` is NOT an alternative. It returns the manifest node's own bytes rather
+than the file: HTTP 200 with the wrong content, which surfaces much later as an
+unparseable manifest or a corrupt pack.
+
+A reader MAY fall back to `/bzz/<ref>/` when the named entry is absent, to read an
+archive written before this section existed or by an implementation using other names.
 
 ## 4. Transport
 

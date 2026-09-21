@@ -55,23 +55,45 @@ export class Swarm {
   /**
    * Fetch a reference we uploaded as a single bzz file.
    *
-   * The trailing slash asks the node to resolve the mantaray and serve its index
-   * document. `uploadFile` sets no index document, and this resolves against the node
-   * that wrote the data and against public gateways but NOT against an arbitrary third
-   * node — see #40. Do not "fix" it by switching to `/bytes/<ref>`: that returns the
-   * mantaray node's own bytes, not the file, so it answers 200 with the wrong content
-   * and the failure surfaces much later as an unparseable manifest.
+   * Ask for the entry by name. `/bzz/<ref>/` — the bare collection root — is the one
+   * route that has to load the manifest's "/" metadata node, and for a single-file
+   * upload that node is a 96-byte, content-free placeholder whose address is the same
+   * for every such upload on the network. Bee needs it only to read back the index
+   * document it set from the filename, and it discards the chunk's contents. When that
+   * one shared chunk is not retrievable, `/bzz/<ref>/` 404s while `/chunks/<ref>`,
+   * `/bytes/<ref>` and `/bzz/<ref>/<name>` all answer 200 — and Bee cannot tell you
+   * why, because the lookup error and "no index document" produce the same 404.
+   *
+   * Observed intermittently on nodes that did not write the data, and never on the
+   * writer, which has the chunk locally. Asking by name never touches it. See #40.
+   *
+   * Do NOT "simplify" this to `/bytes/<ref>`: that returns the manifest node's own
+   * bytes rather than the file, so it answers 200 with the wrong content and fails
+   * much later as an unparseable manifest or a corrupt pack.
+   *
+   * The nameless fallback is kept for an archive written by another implementation
+   * using different entry names. It reaches exactly what it reaches today.
    */
-  async downloadBytes(reference) {
+  async downloadBytes(reference, name) {
     const base = this.settings.gateway.replace(/\/+$/, '')
-    const url = `${base}/bzz/${reference}/`
-    const res = await fetch(url, { signal: AbortSignal.timeout(180_000) })
-    if (!res.ok) throw new Error(`GET ${url} returned ${res.status}`)
-    return Buffer.from(await res.arrayBuffer())
+    const urls = name
+      ? [`${base}/bzz/${reference}/${name}`, `${base}/bzz/${reference}/`]
+      : [`${base}/bzz/${reference}/`]
+
+    let failure
+    for (const url of urls) {
+      const res = await fetch(url, { signal: AbortSignal.timeout(180_000) })
+      if (res.ok) return Buffer.from(await res.arrayBuffer())
+      failure = `GET ${url} returned ${res.status}`
+      // Only a 404 means "try the other spelling". Anything else is the node
+      // telling us something, and retrying hides it.
+      if (res.status !== 404) break
+    }
+    throw new Error(failure)
   }
 
-  async downloadJson(reference) {
-    return JSON.parse((await this.downloadBytes(reference)).toString('utf8'))
+  async downloadJson(reference, name) {
+    return JSON.parse((await this.downloadBytes(reference, name)).toString('utf8'))
   }
 
   // ---- writing -------------------------------------------------------------

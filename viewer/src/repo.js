@@ -14,6 +14,12 @@ const GITDIR = '/repo/.git'
 
 const FALLBACK_GATEWAY = 'https://bzz.limo'
 
+// The names swarm-git/1 stores each object under inside its bzz manifest. Must match
+// ENTRY_PACK and ENTRY_MANIFEST in src/manifest.js — the viewer is a separate bundle
+// and cannot import them. Normative in the format spec §3.1 and §3.2.
+const ENTRY_PACK = 'pack'
+const ENTRY_MANIFEST = 'manifest.json'
+
 /** Sentinel: the page is in a browser that speaks bzz:// natively. */
 export const NATIVE_BZZ = 'bzz:'
 
@@ -35,13 +41,29 @@ export function gatewayFromLocation() {
   return location.origin.replace(/\/+$/, '')
 }
 
-/** Every way we know of to ask for one reference, best first. */
-function candidateUrls(gateway, reference) {
-  const urls = gateway === NATIVE_BZZ
-    ? [`bzz://${reference}/`]
-    : [`${gateway}/bzz/${reference}/`]
-  const fallback = `${FALLBACK_GATEWAY}/bzz/${reference}/`
-  if (!urls.includes(fallback)) urls.push(fallback)
+/**
+ * Every way we know of to ask for one reference, best first.
+ *
+ * Named entry before the bare collection root. `/bzz/<ref>/` is the one route that
+ * must load the manifest's "/" metadata node — a content-free placeholder whose
+ * address is identical for every single-file upload on the network — and when that
+ * shared chunk is not retrievable the request 404s while the named entry answers
+ * fine. It bites a node that did not write the data, which is exactly what a
+ * Swarm-native browser resolving `bzz://` is. See #40.
+ */
+function candidateUrls(gateway, reference, name) {
+  const roots = gateway === NATIVE_BZZ
+    ? [`bzz://${reference}`]
+    : [`${gateway}/bzz/${reference}`]
+  if (!roots.includes(`${FALLBACK_GATEWAY}/bzz/${reference}`)) {
+    roots.push(`${FALLBACK_GATEWAY}/bzz/${reference}`)
+  }
+
+  const urls = []
+  for (const root of roots) {
+    if (name) urls.push(`${root}/${name}`)
+    urls.push(`${root}/`)
+  }
   return urls
 }
 
@@ -104,12 +126,12 @@ function isEnsName(value) {
   return /^[a-z0-9-]+(\.[a-z0-9-]+)*\.eth$/i.test(value)
 }
 
-async function fetchBytes(gateway, reference) {
+async function fetchBytes(gateway, reference, name) {
   // Try native resolution first where it exists, then a public gateway. A
   // Swarm-native browser may not implement fetch() for its own scheme, and
   // falling back beats failing.
   let last = null
-  for (const url of candidateUrls(gateway, reference)) {
+  for (const url of candidateUrls(gateway, reference, name)) {
     try {
       const res = await fetch(url)
       if (res.ok) return new Uint8Array(await res.arrayBuffer())
@@ -137,7 +159,7 @@ export async function resolveManifest(gateway, target) {
     manifestRef = (await res.json()).reference
   }
 
-  const bytes = await fetchBytes(gateway, manifestRef)
+  const bytes = await fetchBytes(gateway, manifestRef, ENTRY_MANIFEST)
   const manifest = JSON.parse(new TextDecoder().decode(bytes))
   if (manifest.format !== 'swarm-git/1') {
     throw new Error(`unsupported manifest format: ${manifest.format}`)
@@ -167,7 +189,7 @@ export async function loadRepository(gateway, manifest, onProgress = () => {}) {
 
   for (const [i, pack] of manifest.packs.entries()) {
     onProgress(`downloading pack ${i + 1}/${manifest.packs.length}`)
-    const bytes = await fetchBytes(gateway, pack.ref)
+    const bytes = await fetchBytes(gateway, pack.ref, ENTRY_PACK)
 
     const filepath = `.git/objects/pack/pack-${pack.ref.slice(0, 40)}.pack`
     await pfs.writeFile(`${DIR}/${filepath}`, bytes)

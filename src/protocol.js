@@ -10,6 +10,7 @@ import { createInterface } from 'node:readline'
 import { parseUrl, resolveSettings } from './config.js'
 import * as git from './gitplumbing.js'
 import * as m from './manifest.js'
+import { ENTRY_MANIFEST, ENTRY_PACK } from './manifest.js'
 import { Swarm, topicFor } from './swarm.js'
 
 const CAPABILITIES = ['fetch', 'push', 'option']
@@ -94,6 +95,10 @@ export async function run(argv, { stdin = process.stdin, stdout = process.stdout
 async function loadManifest(state, { required = true } = {}) {
   if (state.manifest) return state.manifest
 
+  // Resolving the address and reading what it points at fail for different reasons
+  // and need different words. Reporting a failed manifest download as "no existing
+  // repository at this address" sends the reader after a repository that is there.
+  let resolved = false
   try {
     if (state.target.mode === 'manifest') {
       state.manifestRef = state.target.feedManifest
@@ -102,14 +107,29 @@ async function loadManifest(state, { required = true } = {}) {
       state.manifestRef = feed.ref
       state.feedNextIndex = feed.nextIndex
     }
-    state.manifest = m.validate(await state.swarm.downloadJson(state.manifestRef))
+    resolved = true
+    state.manifest = m.validate(await state.swarm.downloadJson(state.manifestRef, ENTRY_MANIFEST))
   } catch (err) {
-    if (required) throw err
+    if (required) {
+      if (!resolved) throw err
+      throw new Error(
+        `the repository exists but ${state.settings.gateway} could not serve its manifest ` +
+          `${state.manifestRef?.slice(0, 8)}…\n` +
+          `  The feed resolved, so the address is right and the push happened.\n` +
+          `  Try another node or a public gateway:\n` +
+          `               SWARM_GATEWAY=https://bzz.limo git fetch\n` +
+          `  (${err.message})`,
+      )
+    }
     // An empty repository is not an error on push — it is the first push.
     state.manifest = m.emptyManifest(state.target.repo || '')
     state.manifestRef = null
     state.feedNextIndex = 0n
-    process.stderr.write(`swarm: no existing repository at this address (${err.message})\n`)
+    process.stderr.write(
+      resolved
+        ? `swarm: could not read the manifest this address points at (${err.message})\n`
+        : `swarm: no existing repository at this address (${err.message})\n`,
+    )
   }
   return state.manifest
 }
@@ -134,7 +154,7 @@ async function doFetch(state, commands, out) {
       if (!wanted) continue
 
       process.stderr.write(`swarm: downloading pack ${i + 1}/${manifest.packs.length} (${pack.size ?? '?'} bytes)\n`)
-      const data = await state.swarm.downloadBytes(pack.ref)
+      const data = await state.swarm.downloadBytes(pack.ref, ENTRY_PACK)
       const path = join(dir, `${i}.pack`)
       writeFileSync(path, data)
       await git.indexPack(path)
@@ -234,7 +254,7 @@ async function doPush(state, commands, out) {
       const data = readFileSync(packPath)
       process.stderr.write(`swarm: uploading ${size} bytes of new objects\n`)
 
-      const ref = await swarm.uploadFile(data, 'pack', 'application/x-git-packfile')
+      const ref = await swarm.uploadFile(data, ENTRY_PACK, 'application/x-git-packfile')
       pack = { ref, size, batch: settings.batch, tips: newTips, base: excludes }
     }
 
@@ -253,7 +273,7 @@ async function doPush(state, commands, out) {
     const next = m.advance(base, { refUpdates, pack, parentRef: baseRef })
     const manifestRef = await swarm.uploadFile(
       Buffer.from(JSON.stringify(next, null, 2)),
-      'manifest.json',
+      ENTRY_MANIFEST,
       'application/json',
     )
 
