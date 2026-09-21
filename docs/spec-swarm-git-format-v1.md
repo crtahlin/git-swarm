@@ -268,6 +268,24 @@ rather than overwriting. Multi-writer collaboration is a later version
 
 One batch per repository, supplied by the operator — v1 never purchases one.
 
+**The batch MUST be immutable.** A writer MUST refuse to publish packs to a mutable batch.
+
+A mutable batch evicts its oldest stamps once a bucket fills, and the network collects the
+chunks whose stamps died. Packs are append-only and never rewritten (§3.1), so eviction is
+not reuse — it is history disappearing while pushes continue to report success. The failure
+is invisible at write time and surfaces later as a repository that no longer resolves.
+
+This is measured, not theoretical: radicle-index-service runs a mutable batch for its feed
+heal loop and observed 292 of 2428 chain chunks gone within a day, after which its feed
+resolved only on the publishing node.
+
+A mutable batch is a reasonable choice for data that can be regenerated from its source. An
+archive cannot be, which is what makes the rule normative here.
+
+Note that Bee defaults the `immutable` flag to **true** when the header is absent on
+`POST /stamps/{amount}/{depth}`. A writer SHOULD still set it explicitly, and MUST verify
+`immutableFlag` on the batch before publishing rather than trusting the default.
+
 A writer MUST check the batch before uploading and refuse when it is missing, unusable or
 expiring. Swarm storage is rented: when the batch lapses, the repository becomes
 unreadable.
