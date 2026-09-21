@@ -124,12 +124,18 @@ ports() {
 
 queen_api() { echo "http://localhost:$(( 1633 + OFFSET ))"; }
 
+# Worker 1. Reading a repository back from a node that did not write it is the
+# only way to tell "published" from "stored locally", which is the failure this
+# project has shipped three times.
+worker_api() { echo "http://localhost:$(( 1635 + OFFSET ))"; }
+
 command -v docker >/dev/null 2>&1 || { echo "SKIP: docker not installed" >&2; exit 77; }
 command -v npm >/dev/null 2>&1 || { echo "SKIP: npm not available" >&2; exit 77; }
 
 case "${1:-}" in
   ports)     prepare; ports ;;
-  queen-api) prepare; queen_api ;;
+  queen-api)  prepare; queen_api ;;
+  worker-api) prepare; worker_api ;;
   offset)    prepare; echo "$OFFSET" ;;
   start)
     shift
@@ -142,6 +148,6 @@ case "${1:-}" in
     "$BIN" stop >&2
     ;;
   *)
-    die "usage: $0 {start|stop|ports|queen-api|offset}"
+    die "usage: $0 {start|stop|ports|queen-api|worker-api|offset}"
     ;;
 esac

@@ -60,7 +60,8 @@ say "starting bee-factory (5 nodes + anvil, ports chosen to avoid collisions)"
 "$FACTORY" start
 QUEEN_API="$("$FACTORY" queen-api 2>/dev/null)"
 [ -n "$QUEEN_API" ] || die "could not determine the queen API address"
-say "queen API at $QUEEN_API"
+WORKER_API="$("$FACTORY" worker-api 2>/dev/null)"
+say "queen API at $QUEEN_API, worker at $WORKER_API"
 
 say "waiting for the queen to report peers"
 deadline=$(( $(date +%s) + 120 ))
@@ -98,4 +99,5 @@ echo "export SWARM_GATEWAY='$QUEEN_API'"
 echo "export SWARM_BATCH_ID='$batch'"
 echo "export SWARM_PRIVATE_KEY='$KEY'"
 echo "export SWARM_OWNER='$OWNER'"
+echo "export SWARM_WORKER_API='$WORKER_API'"
 echo "export SWARM_NO_WARN=1"

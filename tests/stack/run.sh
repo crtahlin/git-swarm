@@ -29,7 +29,7 @@ say() { echo "run: $*" >&2; }
 # layout has shifted there is no point starting a cluster.
 OFFLINE_TESTS="fixture-shape.sh"
 # Tests that need SWARM_API, a batch and a key.
-ONLINE_TESTS="radicle-archive.sh radicle-restore.sh batch-mutability.sh"
+ONLINE_TESTS="radicle-archive.sh radicle-restore.sh publication-durability.sh batch-mutability.sh"
 
 build() {
   say "building images"
@@ -96,6 +96,9 @@ if [ "$CLUSTER" -eq 1 ]; then
   HARNESS_ENV="$HARNESS_ENV -e SWARM_BATCH_ID=$SWARM_BATCH_ID"
   HARNESS_ENV="$HARNESS_ENV -e SWARM_PRIVATE_KEY=$SWARM_PRIVATE_KEY"
   HARNESS_ENV="$HARNESS_ENV -e SWARM_OWNER=$SWARM_OWNER -e SWARM_NO_WARN=1"
+  # A node that did not write the data, reachable from inside the container.
+  host_worker="${SWARM_WORKER_API/localhost/host.docker.internal}"
+  HARNESS_ENV="$HARNESS_ENV -e SWARM_WORKER_API=$host_worker"
   HARNESS_ENV="$HARNESS_ENV --add-host=host.docker.internal:host-gateway"
   export HARNESS_ENV
 
