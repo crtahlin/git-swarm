@@ -58,8 +58,9 @@ Reading needs none of that — see [`docs/addressing.md`](docs/addressing.md).
 
 ## What is out of scope
 
-Server-side merge and anything requiring compute: Swarm is storage, not a build farm. This
-is about what the *project* provides — the repository itself does run CI, and changes are
-expected to pass it. Issues and
-patches are intended to live in the repository as Git objects rather than in a bespoke
-tracker — see the open issue on adopting git-bug or Radicle collaborative objects.
+Server-side merge and anything requiring compute: Swarm is storage, not a build farm. That
+is a statement about what the *project* provides, not about this repository, which does run
+CI — see [`.github/workflows/test.yml`](.github/workflows/test.yml).
+
+Issues and patches are intended to live in the repository as Git objects rather than in a
+bespoke tracker — see the open issue on adopting git-bug or Radicle collaborative objects.

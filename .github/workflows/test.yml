@@ -1,0 +1,86 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A second push to the same branch makes the first run pointless. Cancel it
+# rather than queue five nodes and a chain behind work nobody is waiting for.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline:
+    name: offline tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # No Bee node needed. Fast, and if the Radicle ref layout has shifted
+      # there is nothing to learn from starting a cluster to find out.
+      - name: fixture shape
+        run: |
+          set +e; ./tests/stack/run.sh --no-cluster; rc=$?; set -e
+          if [ $rc -eq 77 ]; then
+            echo "::error::A skip in CI is a failure — the suite did not run what it claims to."
+            exit 1
+          fi
+          exit $rc
+
+  integration:
+    name: integration tests
+    runs-on: ubuntu-latest
+    # The cluster is five Bee nodes plus a chain. Generous, but a hang here
+    # should fail rather than burn the hour.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Nothing here touches mainnet Swarm: cluster-up starts a throwaway
+      # bee-factory cluster on a local chain and the tests refuse to run
+      # anywhere else. No secrets, so this works on pull requests from forks.
+      # run.sh returns 77 when anything skipped. On a workstation that is a
+      # useful result. Here it means the harness did not run what it claims to,
+      # which is indistinguishable from success unless it is turned into a
+      # failure deliberately. Distinguish it from a real failure so the log says
+      # which happened.
+      - name: full suite
+        run: |
+          set +e; ./tests/stack/run.sh; rc=$?; set -e
+          if [ $rc -eq 77 ]; then
+            echo "::error::A skip in CI is a failure — the suite did not run what it claims to."
+            echo "Common causes: docker unavailable, git-remote-bzz missing from the"
+            echo "harness image, or the cluster failing to start."
+            exit 1
+          fi
+          exit $rc
+
+      - name: cluster logs on failure
+        if: failure()
+        run: |
+          docker ps -a || true
+          for c in $(docker ps -aq --filter "name=bee-factory"); do
+            echo "=== $c ==="
+            docker logs --tail 80 "$c" 2>&1 || true
+          done
+
+      - name: tear down
+        if: always()
+        run: ./tests/stack/cluster-up.sh --down || true
