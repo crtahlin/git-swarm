@@ -9,6 +9,15 @@ export function topicFor(repo) {
   return Topic.fromString(TOPIC_PREFIX + repo)
 }
 
+/**
+ * Deliberately an environment variable rather than a setting: accepting silent data loss
+ * in the archive is a one-off decision made at a terminal, not a property of a remote
+ * that should persist in someone's git config and be forgotten.
+ */
+function allowMutableBatch() {
+  return process.env.SWARM_ALLOW_MUTABLE_BATCH === '1'
+}
+
 export class Swarm {
   constructor(settings) {
     this.settings = settings
@@ -110,6 +119,23 @@ export class Swarm {
     }
 
     if (!info.usable) throw new Error(`postage batch ${batch.slice(0, 8)}… is not usable yet`)
+
+    // A mutable batch evicts its oldest stamps once a bucket fills, and the network
+    // garbage-collects chunks whose stamps died. For an append-only pack archive that is
+    // silent data loss: the push succeeds and the repository stops resolving later.
+    // Measured elsewhere on the same shape — radicle-index-service runs a mutable batch
+    // for its feed heal loop and lost 292 of 2428 chain chunks in a day, after which the
+    // feed resolved only on the publishing node.
+    if (info.immutableFlag === false && !allowMutableBatch()) {
+      throw new Error(
+        `postage batch ${batch.slice(0, 8)}… is mutable, and swarm-git/1 is append-only.\n` +
+          `  A mutable batch drops its oldest chunks once it fills, so pushes keep\n` +
+          `  succeeding while older packs quietly stop resolving.\n` +
+          `  Buy an immutable batch:\n` +
+          `               curl -sX POST -H 'immutable: true' ${api}/stamps/<amount>/<depth>\n` +
+          `  Or set SWARM_ALLOW_MUTABLE_BATCH=1 if you accept losing history.`,
+      )
+    }
 
     const ttl = Number(info.duration?.toSeconds?.() ?? info.batchTTL ?? 0)
     if (ttl > 0 && ttl < minBatchTtlSeconds) {

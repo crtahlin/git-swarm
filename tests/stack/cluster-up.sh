@@ -14,7 +14,9 @@
 
 set -euo pipefail
 
-FACTORY="$(cd "$(dirname "$0")" && pwd)/bee-factory.sh"
+STACK="$(cd "$(dirname "$0")" && pwd)"
+FACTORY="$STACK/bee-factory.sh"
+. "$STACK/batch-lib.sh"
 
 say()  { echo "cluster-up: $*" >&2; }
 die()  { echo "cluster-up: $*" >&2; exit 1; }
@@ -77,28 +79,13 @@ say "queen has $connected peers"
 # immutable flag to true when the header is absent (pkg/api/postage.go), but set
 # it explicitly: the default is not something to inherit silently for the one
 # property that decides whether the archive survives.
-# Price the batch from the chain rather than hardcoding an amount. Bee rejects
-# anything below currentPrice * minimumValidityBlocks with "insufficient amount
-# for 24h minimum validity", and both numbers move.
-amount="$(curl -fsS "$QUEEN_API/chainstate" \
-  | python3 -c 'import json,sys; d=json.load(sys.stdin); print(int(d["currentPrice"]) * int(d["minimumValidityBlocks"]) * 2)')"
-[ -n "$amount" ] || die "could not read chainstate to price the batch"
-
-say "buying an immutable batch (amount $amount, depth 20)"
-batch="$(curl -fsS -X POST -H 'immutable: true' "$QUEEN_API/stamps/$amount/20" \
-  | python3 -c 'import json,sys; print(json.load(sys.stdin)["batchID"])')"
-[ -n "$batch" ] || die "no batchID returned"
-
-deadline=$(( $(date +%s) + 120 ))
-while :; do
-  # GET /stamps/<id> returns 400 until the node has seen the batch on chain.
-  # That is "not yet", not "not usable", so a failed request keeps us waiting.
-  usable="$(curl -fsS "$QUEEN_API/stamps/$batch" 2>/dev/null \
-    | python3 -c 'import json,sys; print(json.load(sys.stdin).get("usable",False))' 2>/dev/null || echo False)"
-  [ "$usable" = "True" ] && break
-  [ "$(date +%s)" -lt "$deadline" ] || die "batch $batch never became usable"
-  sleep 3
-done
+say "buying an immutable batch"
+# The archive is append-only, so it needs an IMMUTABLE batch. Bee defaults the
+# immutable flag to true when the header is absent, but batch-lib sets it
+# explicitly: the one property that decides whether the archive survives is not
+# something to inherit silently from a default.
+batch="$(buy_usable_batch "$QUEEN_API" true)" \
+  || die "could not get a usable batch after several attempts"
 say "batch $batch usable"
 
 # Publicly known Foundry test key. Throwaway by design — it is in every Foundry
