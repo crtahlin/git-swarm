@@ -29,7 +29,7 @@ say() { echo "run: $*" >&2; }
 # layout has shifted there is no point starting a cluster.
 OFFLINE_TESTS="fixture-shape.sh"
 # Tests that need SWARM_API, a batch and a key.
-ONLINE_TESTS="radicle-archive.sh batch-mutability.sh"
+ONLINE_TESTS="radicle-archive.sh radicle-restore.sh batch-mutability.sh"
 
 build() {
   say "building images"
