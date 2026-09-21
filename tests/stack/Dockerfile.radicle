@@ -63,7 +63,18 @@ ENV RAD_PASSPHRASE=""
 # socket changes how rad auth behaves, so seed-fixture.sh unsets them itself —
 # which also covers running the script outside this image.
 
-RUN mkdir -p /rad /work
+# Non-root. Nothing here needs root, and on Linux CI a root container writing
+# into a bind mount leaves root-owned files behind in the developer's checkout.
+# UID/GID are build args so CI can match the host user when it needs to write.
+ARG UID=1000
+ARG GID=1000
+RUN addgroup -g "${GID}" radicle \
+ && adduser -u "${UID}" -G radicle -h /home/radicle -s /bin/bash -D radicle \
+ && mkdir -p /rad /work \
+ && chown -R radicle:radicle /rad /work /home/radicle
+
+ENV HOME=/home/radicle
+USER radicle
 WORKDIR /work
 
 CMD ["bash"]
