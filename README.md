@@ -175,9 +175,9 @@ native `bzz://`.
 bin/        the git remote helper, installed as git-remote-bzz
 src/        helper internals: protocol, manifest, swarm, git plumbing
 viewer/     the static web viewer (builds to viewer/dist, published to Swarm)
-docs/       architecture, addressing, format spec, phase results
+docs/       architecture, addressing, format spec, phase results, testing
 scripts/    phase 0 mirror script
-tests/      end-to-end checks — round trip, gateway clone, served-page links
+tests/      end-to-end checks, plus stack/ — a dockerised Bee + Radicle harness
 ```
 
 | Document | What it covers |
@@ -186,12 +186,16 @@ tests/      end-to-end checks — round trip, gateway clone, served-page links
 | [`docs/spec-swarm-git-format-v1.md`](docs/spec-swarm-git-format-v1.md) | the on-Swarm format, normative |
 | [`docs/architecture.md`](docs/architecture.md) | the options considered, and the risk register |
 | [`docs/phase-0-results.md`](docs/phase-0-results.md) · [`docs/phase-1-results.md`](docs/phase-1-results.md) | what was measured |
+| [`docs/testing.md`](docs/testing.md) | how to run the tests, and what each one proves |
 
 ## Requirements
 
 - A Bee node reachable on `http://localhost:1633` (light node is sufficient for uploads)
 - A funded postage batch (`swarm-cli stamp list`) — Swarm storage is rented, not permanent
 - `git` 2.x, `curl`, `python3`
+
+Reading needs none of it. To run the tests you need Docker instead of a node — see
+[`docs/testing.md`](docs/testing.md); they use a throwaway cluster and never touch mainnet.
 
 ## Contributing
 

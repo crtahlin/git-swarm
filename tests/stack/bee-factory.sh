@@ -17,7 +17,8 @@
 # would bring the cluster up on the defaults, fighting the node we set out to
 # avoid, and the logs would look fine.
 #
-# The real fix is upstream: make these configurable and send a PR.
+# Filed upstream: ethersphere/bee-factory#321 (ports not configurable, and the
+# anvil --port trap below).
 
 set -euo pipefail
 

@@ -46,13 +46,20 @@ warning at the top of the README.
 
 ```sh
 npm install && npm link          # puts git-remote-bzz on PATH
-./tests/e2e-push-clone.sh        # needs a Bee node, a postage batch and a signing key
+./tests/stack/run.sh             # the full suite, on a throwaway cluster (needs Docker)
+./tests/e2e-push-clone.sh        # against your own node, batch and key
 ```
+
+`tests/stack/run.sh` publishes nothing outside its own containers.
+[`docs/testing.md`](docs/testing.md) explains what each test proves and which two upstream
+bugs the harness works around.
 
 Reading needs none of that — see [`docs/addressing.md`](docs/addressing.md).
 
 ## What is out of scope
 
-CI, server-side merge, and anything requiring compute: Swarm is storage. Issues and
+Server-side merge and anything requiring compute: Swarm is storage, not a build farm. This
+is about what the *project* provides — the repository itself does run CI, and changes are
+expected to pass it. Issues and
 patches are intended to live in the repository as Git objects rather than in a bespoke
 tracker — see the open issue on adopting git-bug or Radicle collaborative objects.

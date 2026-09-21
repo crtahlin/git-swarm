@@ -35,7 +35,7 @@ sys.exit(0 if json.load(sys.stdin).get("usable") else 1)' 2>/dev/null
 # the transaction succeeds, the receipt says status 0x1, and the node never sees
 # the batch at all. Observed on bee-factory right after its anvil state restore —
 # mined at block 494 while the node was already synced past 500. Waiting longer
-# does not help; buying again does.
+# does not help; buying again does. Filed upstream: ethersphere/bee-factory#322.
 buy_usable_batch() {
   local api="$1" immutable="$2" depth="${3:-20}" attempts="${4:-3}" window="${5:-90}"
   local amount id deadline n=1
