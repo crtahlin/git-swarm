@@ -34,6 +34,27 @@ ref layout and both were wrong. Reading heartwood's source was not enough. It is
 regression guard: if Radicle changes the shape, a test fails instead of a design document
 going quietly stale.
 
+## Watching it work
+
+```sh
+tests/stack/demo.sh              # watch the whole story, ~1 minute
+tests/stack/demo.sh --keep       # leave the cluster up to browse in the viewer
+tests/stack/demo.sh --record     # record to docs/assets/demo.cast and .gif
+```
+
+Seven steps: a Radicle repository is created, archived to Swarm, **completely deleted**,
+restored by a different identity holding nothing but a `bzz://` reference, verified,
+re-seeded onto the network by a fresh node, and finally read back with `rad` removed from
+`PATH` entirely.
+
+Nothing is staged. Every command is the real one, and the displayed command is always the
+command that ran — an earlier draft printed a prettier `cd` than it executed, and it broke
+rather than lying, which is the failure you want from a demo.
+
+Credentials go to the container in an `--env-file`, not on the command line, because
+asciinema records the command into the cast header and a published recording should not
+show keys being passed that way.
+
 ## The stack
 
 | Piece | What it is |
