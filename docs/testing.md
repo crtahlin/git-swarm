@@ -23,11 +23,19 @@ a suite that passed, and that is how a broken harness survives.
 | Test | Needs a node | Proves |
 |---|---|---|
 | `fixture-shape.sh` | no | What a Radicle storage repo actually contains. Every ref a commit, the namespace carrying `sigrefs`/`id`/`root`, sigrefs a commit over a `refs`+`signature` tree, and a second push fast-forwarding it |
-| `radicle-archive.sh` | yes | A bare Radicle storage repo pushed with `refs/*:refs/*` and fetched back with every ref byte-identical, `fsck` clean, sigrefs still verifiable |
+| `ancestry-diagnosis.sh` | no | "Not an ancestor" and "could not tell" are different answers. Covers a commit pair each way, a ref pointing at a blob, and a missing object |
+| `radicle-archive.sh` | yes | A bare storage repo pushed with `refs/*:refs/*` and fetched back with every ref byte-identical, `fsck` clean, sigrefs still verifiable |
+| `radicle-archive-multipeer.sh` | yes | The same for a repository holding two peers' namespaces, built by two real radicle-nodes replicating. Also that only delegates carry `refs/rad/id` |
+| `radicle-archive-rewrite.sh` | yes | After a peer rewrites history, a plain refspec is still refused and a forced one tracks it, leaving the archive matching the source |
 | `radicle-restore.sh` | yes | A **fresh** install with a **different** identity restores from `bzz://` and `rad inspect` recovers a byte-identical identity document — with no batch and no key in the environment |
+| `radicle-reseed.sh` | yes | A machine that never held the repository restores it, seeds it, starts a node, and the node takes it into its **inventory**. Also that it stayed off the public network |
+| `vendor-free-restore.sh` | yes | The same restore with `rad`, `radicle-node`, `radicle-httpd` and `git-remote-rad` all unreachable — asserted absent before the result is trusted |
+| `publication-durability.sh` | yes | A repository pushed through one node is readable from a **different** node. The only test that distinguishes "published" from "stored locally" |
 | `batch-mutability.sh` | yes | A mutable batch is refused with the fix named in the message, the override works, an immutable batch is accepted |
-| `radicle-archive-multipeer.sh` | yes | The same round trip for a repository holding two peers' namespaces, built by two real radicle-nodes replicating |
-| `publication-durability.sh` | yes | A repository pushed through one node is readable from a **different** node — the only test that distinguishes "published" from "stored locally" |
+
+Every one of these has been observed failing on a real defect while it was being written —
+a wrong read path, a lost batch, a SIGPIPE in the harness, a missing git identity, a
+mutation to `isAncestor`. None of them is decorative.
 
 `fixture-shape.sh` exists because two issues were filed from assumptions about the Radicle
 ref layout and both were wrong. Reading heartwood's source was not enough. It is the
@@ -61,8 +69,11 @@ show keys being passed that way.
 |---|---|
 | `Dockerfile.radicle` | alpine, radicle 1.10.3 and radicle-httpd 0.29.0 pinned by version **and** sha256, non-root, arm64/amd64 |
 | `Dockerfile.harness` | the above plus node and the helper. Product code baked, test scripts bind-mounted |
-| `seed-fixture.sh` | builds a real storage repo: own `RAD_HOME`, no node started, no announce, repo private |
+| `seed-fixture.sh` | builds a real storage repo: own `RAD_HOME`, no node started, no announce. Private by default, `public` when a node has to inventory it |
+| `seed-multipeer.sh` | two real radicle-nodes replicating, so the fixture has two namespaces. A `rewrite` phase force-pushes from one peer |
 | `bee-factory.sh` | installs bee-factory and moves its ports out of the way |
+| `patch-bee-factory-ports.py` | the port rewrite, asserting its own match counts |
+| `demo.sh` · `demo-story.sh` | the narrated end-to-end story, and its recorder |
 | `batch-lib.sh` | buys a postage batch that the node can actually use |
 | `cluster-up.sh` | starts the cluster and prints the environment to use |
 | `run.sh` | runs the suite |
