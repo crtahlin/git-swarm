@@ -58,7 +58,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-"$STACK/cluster-up.sh" > "$env_file" || { cat "$env_file" >&2; exit 1; }
+# The demo pushes seconds after the cluster starts and reads through a node that
+# did not write the data, so it needs the mesh warm. The test suite does not.
+GIT_SWARM_WARMUP=1 "$STACK/cluster-up.sh" > "$env_file" || { cat "$env_file" >&2; exit 1; }
 # shellcheck disable=SC1090
 . "$env_file"
 
@@ -78,6 +80,7 @@ SWARM_PRIVATE_KEY=$SWARM_PRIVATE_KEY
 SWARM_OWNER=$SWARM_OWNER
 SWARM_NO_WARN=1
 DEMO_PAUSE=$PAUSE
+SWARM_WORKER_API=${SWARM_WORKER_API/localhost/host.docker.internal}
 ENV
 chmod 600 "$docker_env"
 

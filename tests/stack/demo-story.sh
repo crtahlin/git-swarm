@@ -36,7 +36,37 @@ URL="bzz::${SWARM_OWNER}/${NAME}"
 echo
 b "git-swarm — archiving a Radicle repository to Swarm, and getting it back"
 dim "Every command below is real. Nothing is mocked or pre-baked."
+echo
 sleep "$PAUSE"
+b "What the pieces are"
+dim "  Radicle  peer-to-peer git. No server: a repository lives on whichever"
+dim "           nodes choose to seed it, and its identity, issues and patches"
+dim "           are git objects rather than a database. Its weak spot is that"
+dim "           when nobody seeds a repository any more, it is simply gone."
+sleep "$PAUSE"
+dim "  Swarm    decentralised storage you rent. Content is split into 4 KB"
+dim "           chunks addressed by their hash, and a \"feed\" is a mutable"
+dim "           pointer signed by an Ethereum key — so refs can move, and"
+dim "           anyone can check who moved them. Storage is paid for with a"
+dim "           postage batch, and lapses when the rent stops."
+sleep "$PAUSE"
+dim "  git-swarm  the bridge. git-remote-bzz makes Swarm an ordinary git"
+dim "           remote, so \"git push bzz::…\" works with no server anywhere."
+dim "           Radicle gets durable storage; Swarm gets a real use."
+sleep "$PAUSE"
+echo
+dim "Running against a local five-node bee-factory cluster on a throwaway chain,"
+dim "not mainnet Swarm — so nothing here is published to the real network."
+dim "The repository is written through one node and read back through a DIFFERENT"
+dim "one, so \"it worked\" cannot mean \"it was still in the writer's own store\"."
+sleep "$PAUSE"
+
+WRITER="${SWARM_API:?}"
+READER="${SWARM_WORKER_API:-$SWARM_API}"
+if [ "$READER" = "$WRITER" ]; then
+  dim "   note: no separate reader node configured; reads would come from the"
+  dim "   writing node and would prove less. Run this through tests/stack/demo.sh."
+fi
 
 # ---------------------------------------------------------------------------
 step "1. A Radicle repository"
@@ -45,12 +75,19 @@ RID="$("$(dirname "$0")/seed-fixture.sh" "$ORIGIN" alice public 2>/dev/null)"
 echo "   created rad:$RID"
 run "cd $ORIGIN/storage/$RID"
 runshort "git for-each-ref --format='%(objecttype) %(refname)'"
-dim "   Branches AND self-certification: refs/rad/sigrefs is what proves"
-dim "   to anyone that these refs really came from their author."
+dim "   Under the hood: a Radicle repository on disk is a bare git repo where"
+dim "   every peer gets its own refs/namespaces/<node-id>/ subtree. sigrefs is"
+dim "   that peer signing its own ref list, so a copy can be checked by anyone"
+dim "   without trusting whoever handed it over."
 
 # ---------------------------------------------------------------------------
 step "2. Archive it to Swarm"
 
+dim "   Under the hood: git packs the objects, the helper uploads the pack to"
+dim "   Swarm, writes a small JSON manifest listing every ref and pack, and"
+dim "   moves a signed feed to point at that manifest. The feed is the only"
+dim "   mutable part, and only the key holder can move it."
+dim ""
 dim "   A forced refspec, because an archive tracks its source rather than"
 dim "   defending a branch from it."
 run "cd $ORIGIN/storage/$RID"
@@ -82,10 +119,39 @@ json.dump(c, open(p, 'w'), indent=2)
 PY
 dim "   A different machine. A different identity. No postage batch and no"
 dim "   signing key — reading an archive must never require paying to read it."
+dim "   And a different Swarm node: $READER"
+dim "   That node never saw the push. If the data had not really propagated,"
+dim "   it would have nothing to serve."
 mkdir -p "$RESTORED/storage/$RID"
 git init -q --bare "$RESTORED/storage/$RID"
 run "cd $RESTORED/storage/$RID"
-runshort "env -u SWARM_BATCH_ID -u SWARM_PRIVATE_KEY git fetch '$URL' '+refs/*:refs/*' 2>&1 | tail -4"
+dim "   Propagation is not instant, so this retries until the reader has it."
+dim "\$ env -u SWARM_BATCH_ID -u SWARM_PRIVATE_KEY \\"
+dim "    SWARM_API=$READER SWARM_GATEWAY=$READER \\"
+dim "    git fetch '$URL' '+refs/*:refs/*'"
+deadline=$(( $(date +%s) + 180 ))
+attempt=0
+while :; do
+  attempt=$(( attempt + 1 ))
+  out="$(env -u SWARM_BATCH_ID -u SWARM_PRIVATE_KEY \
+           SWARM_API="$READER" SWARM_GATEWAY="$READER" \
+           git fetch "$URL" '+refs/*:refs/*' 2>&1)" && \
+    git show-ref --quiet && break
+  [ "$(date +%s)" -lt "$deadline" ] || {
+    echo "$out" | short
+    echo "   the reader never got it within 180s — that would be a real failure"
+    exit 1
+  }
+  if [ "$attempt" -eq 1 ]; then
+    # Show why the first attempt failed. A demo that hides its errors and then
+    # times out tells you nothing about what went wrong.
+    printf '%s\n' "$out" | short | sed 's/^/   /'
+  fi
+  [ $(( attempt % 3 )) -eq 1 ] && dim "   not there yet, waiting for it to reach $READER"
+  sleep 5
+done
+printf '%s\n' "$out" | short
+dim "   arrived after $attempt attempt(s)"
 
 # ---------------------------------------------------------------------------
 step "5. Is it really the same repository?"
@@ -111,6 +177,9 @@ done
 run "RAD_HOME=$RESTORED rad node inventory"
 dim "   Inventory is what a node announces it will serve. The repository is"
 dim "   back on the network, from an archive, after every peer was gone."
+dim ""
+dim "   Under the hood: restoring took two things — the git objects, and a"
+dim "   seeding policy telling the node it should carry this repository."
 
 # ---------------------------------------------------------------------------
 step "7. And it is readable with no Radicle at all"
@@ -124,13 +193,17 @@ run "PATH=$BIN command -v rad || echo '   rad: not found'"
 rm -rf /tmp/demo-plain.git
 PATH="$BIN" git init -q --bare /tmp/demo-plain.git
 run "cd /tmp/demo-plain.git"
-runshort "PATH=$BIN env -u SWARM_BATCH_ID -u SWARM_PRIVATE_KEY git fetch '$URL' '+refs/*:refs/*' 2>&1 | tail -3"
+runshort "PATH=$BIN env -u SWARM_BATCH_ID -u SWARM_PRIVATE_KEY SWARM_API=$READER SWARM_GATEWAY=$READER git fetch '$URL' '+refs/*:refs/*' 2>&1 | tail -3"
 runshort "PATH=$BIN git for-each-ref --count=3 --format='%(refname)'"
 
 echo
 b "── Done "
-echo "   Archived to Swarm, lost completely, restored by a stranger,"
-echo "   re-seeded onto the network, and readable with stock git alone."
+echo "   Archived to Swarm, lost completely, restored through a node that"
+echo "   never saw the push, re-seeded onto the network, and readable with"
+echo "   stock git alone."
+echo
+dim "   Local bee-factory cluster, not mainnet. Write node $WRITER,"
+dim "   read node $READER."
 echo
 echo "   Clone it with the helper:"
 echo "     git clone $URL"

@@ -89,6 +89,44 @@ batch="$(buy_usable_batch "$QUEEN_API" true)" \
   || die "could not get a usable batch after several attempts"
 say "batch $batch usable"
 
+# A freshly started cluster answers /health long before one node can retrieve a
+# chunk another node wrote. Peers connect, but the mesh needs a moment before
+# retrieval works across it. Without this wait, anything that writes on the queen
+# and reads on a worker fails for a minute or two and looks like a bug in the
+# thing being tested — which is exactly how it presented.
+#
+# So the cluster is not "up" until a worker can serve what the queen stored.
+#
+# Opt-in via GIT_SWARM_WARMUP, because it costs up to three minutes and the test
+# suite does not need it: by the time the first cross-node read runs, five other
+# tests have been exercising the mesh. The demo pushes seconds after startup and
+# does need it.
+if [ -n "${WORKER_API:-}" ] && [ -n "${GIT_SWARM_WARMUP:-}" ]; then
+  say "waiting until a worker can retrieve what the queen wrote"
+  # swarm-deferred-upload: false — a deferred upload is stored locally and pushed
+  # to the network in the background, so a deferred probe can never prove that
+  # cross-node retrieval works. It has to go to the network synchronously.
+  probe_ref="$(curl -fsS -X POST -H "swarm-postage-batch-id: $batch" \
+      -H 'swarm-deferred-upload: false' \
+      -H 'content-type: application/octet-stream' \
+      --data-binary "cluster-warmup-$(date +%s)" "$QUEEN_API/bytes" 2>/dev/null \
+    | python3 -c 'import json,sys; print(json.load(sys.stdin)["reference"])' 2>/dev/null || echo '')"
+  if [ -z "$probe_ref" ]; then
+    say "could not upload a warm-up probe; continuing without the check"
+  else
+    deadline=$(( $(date +%s) + 180 ))
+    until curl -fsS -o /dev/null "$WORKER_API/bytes/$probe_ref" 2>/dev/null; do
+      [ "$(date +%s)" -lt "$deadline" ] || {
+        say "warm-up probe never came back; the wait itself is usually enough"
+        break
+      }
+      sleep 5
+    done
+    curl -fsS -o /dev/null "$WORKER_API/bytes/$probe_ref" 2>/dev/null \
+      && say "cross-node retrieval working"
+  fi
+fi
+
 # Publicly known Foundry test key. Throwaway by design — it is in every Foundry
 # install and on every anvil chain. Never use it for anything that matters.
 KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
