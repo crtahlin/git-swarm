@@ -1,8 +1,13 @@
 name: tests
 
 on:
+  # Every branch, not just main. CI that only runs once work has already landed
+  # tells you too late — and a feature branch is exactly where a harness bug
+  # should surface.
   push:
-    branches: [main]
+    branches: ['**']
+  # Same-repo branches are already covered by push, so this is really for forks.
+  # The guard on each job stops it running twice for our own pull requests.
   pull_request:
   workflow_dispatch:
 
@@ -16,6 +21,9 @@ jobs:
   offline:
     name: offline tests
     runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - uses: actions/checkout@v4
 
@@ -40,6 +48,9 @@ jobs:
   integration:
     name: integration tests
     runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name != github.repository
     # The cluster is five Bee nodes plus a chain. Generous, but a hang here
     # should fail rather than burn the hour.
     timeout-minutes: 30
