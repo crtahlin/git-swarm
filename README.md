@@ -148,7 +148,7 @@ in your browser:
 **[bzz.limo/bzz/09a5c892…/#bzz/2659451a…](https://bzz.limo/bzz/02a7f5a1109e7058734055cf07be6c361ce13534fb43ecf09a6020018020be43/#bzz/de4a9c970f265dbff707ac01f3bfa825d119a4dcdbcfeae41eff4a338f41d2d1)**
 
 Both halves of that URL are Swarm **feeds**, so both are permanent: the left one is the
-viewer, republished with `./scripts/publish-viewer.sh`; the right one is this repository,
+viewer, republished with `./scripts/publish-viewer.mjs`; the right one is this repository,
 advanced by every `git push`. Neither address changes when the content does.
 
 The viewer opens this repository by default, so the bare address works too:
@@ -187,6 +187,7 @@ tests/      end-to-end checks, plus stack/ — a dockerised Bee + Radicle harnes
 | [`docs/architecture.md`](docs/architecture.md) | the options considered, and the risk register |
 | [`docs/phase-0-results.md`](docs/phase-0-results.md) · [`docs/phase-1-results.md`](docs/phase-1-results.md) | what was measured |
 | [`docs/testing.md`](docs/testing.md) | how to run the tests, and what each one proves |
+| [`docs/archival-policy.md`](docs/archival-policy.md) | what archiving the Radicle network would cost, measured |
 
 ## Requirements
 

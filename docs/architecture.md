@@ -254,6 +254,11 @@ Mitigations that must be part of the design, not bolted on:
   data loss. Plan: one immutable batch per epoch, with the manifest recording which
   batch stamped which pack, and a new batch when the current one nears capacity.
 - Erasure coding for anything that matters.
+- Costed against a real network rather than argued about: archiving all 15,737
+  Radicle repositories is 277–1,387 BZZ/year at 1–5 MB average, one postage batch.
+  See [`archival-policy.md`](archival-policy.md), which also finds that the
+  `seeders < N` filter proposed in #31 selects on a number that probably measures
+  announcements rather than independent custodians.
 - Note the documented caveat that unencrypted content stamped with an *expired* batch
   cannot simply be re-uploaded — this needs to be verified experimentally before it is
   designed around, because it determines whether "revive an expired repo" is possible.
