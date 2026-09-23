@@ -27,6 +27,7 @@ a suite that passed, and that is how a broken harness survives.
 | `radicle-archive.sh` | yes | A bare storage repo pushed with `refs/*:refs/*` and fetched back with every ref byte-identical, `fsck` clean, sigrefs still verifiable |
 | `radicle-archive-multipeer.sh` | yes | The same for a repository holding two peers' namespaces, built by two real radicle-nodes replicating. Also that only delegates carry `refs/rad/id` |
 | `radicle-archive-rewrite.sh` | yes | After a peer rewrites history, a plain refspec is still refused and a forced one tracks it, leaving the archive matching the source |
+| `radicle-cobs.sh` | yes | Issues and patches survive the round trip as ordinary refs — and that Radicle's derived caches do **not** rebuild, so the listings stay empty |
 | `radicle-restore.sh` | yes | A **fresh** install with a **different** identity restores from `bzz://` and `rad inspect` recovers a byte-identical identity document — with no batch and no key in the environment |
 | `radicle-reseed.sh` | yes | A machine that never held the repository restores it, seeds it, starts a node, and the node takes it into its **inventory**. Also that it stayed off the public network |
 | `vendor-free-restore.sh` | yes | The same restore with `rad`, `radicle-node`, `radicle-httpd` and `git-remote-rad` all unreachable — asserted absent before the result is trusted |
