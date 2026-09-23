@@ -63,6 +63,27 @@ Credentials go to the container in an `--env-file`, not on the command line, bec
 asciinema records the command into the cast header and a published recording should not
 show keys being passed that way.
 
+## Seeing it in a forge UI
+
+```sh
+tests/stack/demo-gui.sh              # bring it up, open the URL it prints
+tests/stack/demo-gui.sh --record     # record docs/assets/canopy.gif
+```
+
+Does the same archive-delete-restore, then serves the restored repository through
+`radicle-httpd` and points [canopy](https://github.com/solardev-xyz/canopy) — the Radicle
+forge UI — at it. What you get is an ordinary forge: file tree, README, commits, issues,
+patches. Nothing about it is Swarm-specific. The repository it is showing exists only
+because it came back out of an archive.
+
+**It does not touch your own Radicle install or Freedom Browser.** canopy reads
+`CANOPY_HTTPD` and `CANOPY_BEE` from the environment, so it is pointed at a throwaway node
+in a container. canopy itself is third-party and is cloned into a cache directory, not into
+this repository.
+
+This one uses the cluster warm-up, because it reads back through a node that did not write
+the data and a cold mesh takes minutes to serve that.
+
 ## The stack
 
 | Piece | What it is |
